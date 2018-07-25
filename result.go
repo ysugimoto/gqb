@@ -23,6 +23,14 @@ func (r *Result) MarshalJSON() ([]byte, error) {
 	return json.Marshal(r.values)
 }
 
+func (r *Result) Nil(f string) bool {
+	if v, ok := r.values[f]; !ok {
+		return true
+	} else {
+		return v == nil
+	}
+}
+
 func (r *Result) MustString(f string) string {
 	if s, err := r.String(f); err != nil {
 		panic(err)
