@@ -76,9 +76,15 @@ func (q *Builder) Join(table, from, to string, c Comparison) *Builder {
 	return q
 }
 
-func (q *Builder) GroupWhare(c func(g *ConditionGroup)) *Builder {
-	cg := NewConditionGroup()
-	c(cg)
+func (q *Builder) WhereGroup(generator func(g *ConditionGroup)) *Builder {
+	cg := NewConditionGroup(And)
+	generator(cg)
+	q.wheres = append(q.wheres, cg)
+	return q
+}
+func (q *Builder) OrWhereGroup(generator func(g *ConditionGroup)) *Builder {
+	cg := NewConditionGroup(Or)
+	generator(cg)
 	q.wheres = append(q.wheres, cg)
 	return q
 }
@@ -119,6 +125,16 @@ func (q *Builder) Like(field string, value interface{}) *Builder {
 		field:      field,
 		value:      value,
 		combine:    And,
+	})
+	return q
+}
+
+func (q *Builder) OrLike(field string, value interface{}) *Builder {
+	q.wheres = append(q.wheres, Condition{
+		comparison: Like,
+		field:      field,
+		value:      value,
+		combine:    Or,
 	})
 	return q
 }

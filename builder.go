@@ -78,7 +78,7 @@ func buildWhere(wheres []conditionBuilder, binds []interface{}) (string, []inter
 		}
 		var phrase string
 		phrase, binds = w.buildCondition(binds)
-		where += fmt.Sprintf("%s (%s)", c, phrase)
+		where += fmt.Sprintf("%s(%s)", c, phrase)
 	}
 	return " WHERE " + where, binds
 }
@@ -118,12 +118,12 @@ func buildLimit(limit int64) string {
 	if limit == 0 {
 		return ""
 	}
-	return fmt.Sprintf(" LIMIT %d ", limit)
+	return fmt.Sprintf(" LIMIT %d", limit)
 }
 
 func buildOffset(offset int64) string {
 	if offset == 0 {
 		return ""
 	}
-	return fmt.Sprintf(" OFFSET %d ", offset)
+	return fmt.Sprintf(" OFFSET %d", offset)
 }

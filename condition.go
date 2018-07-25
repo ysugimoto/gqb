@@ -63,7 +63,7 @@ func (c Condition) buildCondition(binds []interface{}) (string, []interface{}) {
 			phrase = fmt.Sprintf("%s IN (%s)", formatField(c.field), strings.Trim(q, ", "))
 		}
 	default:
-		phrase = fmt.Sprintf("%s%s %s ?", c, formatField(c.field), string(c.comparison))
+		phrase = fmt.Sprintf("%s %s ?", formatField(c.field), string(c.comparison))
 		binds = bind(binds, c.value)
 	}
 	return phrase, binds
@@ -81,11 +81,13 @@ type Join struct {
 
 type ConditionGroup struct {
 	conditions []conditionBuilder
+	combine    Combine
 }
 
-func NewConditionGroup() *ConditionGroup {
+func NewConditionGroup(c Combine) *ConditionGroup {
 	return &ConditionGroup{
 		conditions: make([]conditionBuilder, 0),
+		combine:    c,
 	}
 }
 
@@ -130,7 +132,7 @@ func (g *ConditionGroup) Like(field string, value interface{}) *ConditionGroup {
 }
 
 func (g *ConditionGroup) getCombine() string {
-	return ""
+	return string(g.combine)
 }
 func (g *ConditionGroup) getComparison() string {
 	return ""
@@ -151,7 +153,7 @@ func (g *ConditionGroup) buildCondition(binds []interface{}) (string, []interfac
 		}
 		var phrase string
 		phrase, binds = cd.buildCondition(binds)
-		where += fmt.Sprintf("%s (%s)", c, phrase)
+		where += fmt.Sprintf("%s%s", c, phrase)
 	}
 	return where, binds
 }
