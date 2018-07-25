@@ -58,35 +58,27 @@ func buildUpdateFields(data Data, binds []interface{}) (string, []interface{}) {
 	return strings.Join(fields, ", "), binds
 }
 
-func buildWhere(wheres []Condition, binds []interface{}) (string, []interface{}) {
+func buildWhere(wheres []conditionBuilder, binds []interface{}) (string, []interface{}) {
 	if len(wheres) == 0 {
 		return "", binds
 	}
 
 	first := true
 	where := ""
+	c := ""
 
 	for _, w := range wheres {
-		c := " " + string(w.combine) + " "
+		c = w.getCombine()
+		if c != "" {
+			c = " " + c + " "
+		}
 		if first {
 			c = ""
 			first = false
 		}
-		switch w.comparison {
-		case In:
-			q := ""
-			values, ok := w.value.([]interface{})
-			if ok {
-				for _, v := range values {
-					q += "?, "
-					binds = bind(binds, v)
-				}
-				where += fmt.Sprintf("%s%s IN (%s)", c, formatField(w.field), strings.Trim(q, ", "))
-			}
-		default:
-			where += fmt.Sprintf("%s%s %s ?", c, formatField(w.field), string(w.comparison))
-			binds = bind(binds, w.value)
-		}
+		var phrase string
+		phrase, binds = w.buildCondition(binds)
+		where += fmt.Sprintf("%s (%s)", c, phrase)
 	}
 	return " WHERE " + where, binds
 }

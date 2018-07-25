@@ -2,6 +2,7 @@ package gqb
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"database/sql"
@@ -27,11 +28,10 @@ type Builder struct {
 	db      Executor
 	limit   int64
 	offset  int64
-	wheres  []Condition
+	wheres  []conditionBuilder
 	orders  []Order
 	selects []interface{}
 	joins   []Join
-	table   string
 }
 
 func New(db Executor) *Builder {
@@ -41,17 +41,12 @@ func New(db Executor) *Builder {
 }
 
 func (q *Builder) Reset() {
-	q.wheres = []Condition{}
+	q.wheres = []conditionBuilder{}
 	q.selects = []interface{}{}
 	q.joins = []Join{}
 	q.orders = []Order{}
 	q.limit = 0
 	q.offset = 0
-}
-
-func (q *Builder) Table(table string) *Builder {
-	q.table = table
-	return q
 }
 
 func (q *Builder) Select(fields ...interface{}) *Builder {
@@ -78,6 +73,13 @@ func (q *Builder) Join(table, from, to string, c Comparison) *Builder {
 		},
 		table: table,
 	})
+	return q
+}
+
+func (q *Builder) GroupWhare(c func(g *ConditionGroup)) *Builder {
+	cg := NewConditionGroup()
+	c(cg)
+	q.wheres = append(q.wheres, cg)
 	return q
 }
 
@@ -129,13 +131,13 @@ func (q *Builder) OrderBy(field string, sort SortMode) *Builder {
 	return q
 }
 
-func (q *Builder) GetOne() (*Result, error) {
+func (q *Builder) GetOne(table string) (*Result, error) {
 	defLimit := q.limit
 	defer func() {
 		q.limit = defLimit
 	}()
 	q.limit = 1
-	r, err := q.Get()
+	r, err := q.Get(table)
 	if err != nil {
 		return nil, err
 	} else if len(r) == 0 {
@@ -144,8 +146,8 @@ func (q *Builder) GetOne() (*Result, error) {
 	return r[0], nil
 }
 
-func (q *Builder) Get() ([]*Result, error) {
-	query, binds, err := q.Build(Select, nil)
+func (q *Builder) Get(table string) (Results, error) {
+	query, binds, err := q.Build(Select, table, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -154,33 +156,53 @@ func (q *Builder) Get() ([]*Result, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	columns, err := rows.Columns()
+	return q.scan(rows)
+}
+
+func (q *Builder) scan(rows *sql.Rows) (Results, error) {
+	columns, err := rows.ColumnTypes()
 	if err != nil {
 		return nil, err
 	}
-	results := []*Result{}
+
+	results := Results{}
 	for rows.Next() {
-		scans := []interface{}{}
-		for i := 0; i < len(columns); i++ {
-			var s interface{}
-			scans = append(scans, &s)
-		}
+		scans := make([]interface{}, len(columns))
 		if err := rows.Scan(scans...); err != nil {
 			return nil, err
 		}
-		v := make(map[string]interface{})
+		values := make(map[string]interface{})
 		for i, n := range columns {
-			v[n] = *scans[i].(*interface{})
+			name := n.Name()
+			value := scans[i].(*interface{})
+			// Check nil immediately
+			if *value == nil {
+				values[name] = *value
+				continue
+			}
+			// We treat charater fields like VARCHAR, TEXT, ...
+			// Because Go's sql driver scan as []byte for string type column on interface{},
+			// so it's hard to convert to string on marshal JSON.
+			t := n.ScanType()
+			// Ensure []byte type
+			if t.Kind() == reflect.Slice && t.Name() == "RawBytes" {
+				// Also we need to ensure value is zero value to avoid panic
+				if reflect.ValueOf(value).IsValid() {
+					v := *value
+					values[name] = string(v.([]byte))
+					continue
+				}
+			}
+			// Other types like int, float, decimal will treat as interface directory
+			values[name] = *value
 		}
-		results = append(results, &Result{
-			values: v,
-		})
+		results = append(results, NewResult(values))
 	}
 	return results, err
 }
 
-func (q *Builder) Update(data Data) error {
-	query, binds, err := q.Build(Update, data)
+func (q *Builder) Update(table string, data Data) error {
+	query, binds, err := q.Build(Update, table, data)
 	if err != nil {
 		return err
 	}
@@ -188,8 +210,8 @@ func (q *Builder) Update(data Data) error {
 	return err
 }
 
-func (q *Builder) Insert(data Data) error {
-	query, binds, err := q.Build(Insert, data)
+func (q *Builder) Insert(table string, data Data) error {
+	query, binds, err := q.Build(Insert, table, data)
 	if err != nil {
 		return err
 	}
@@ -197,8 +219,8 @@ func (q *Builder) Insert(data Data) error {
 	return err
 }
 
-func (q *Builder) Delete() error {
-	query, binds, err := q.Build(Delete, nil)
+func (q *Builder) Delete(table string) error {
+	query, binds, err := q.Build(Delete, table, nil)
 	if err != nil {
 		return err
 	}
@@ -206,8 +228,8 @@ func (q *Builder) Delete() error {
 	return err
 }
 
-func (q *Builder) Build(mode queryMode, data Data) (string, []interface{}, error) {
-	if q.table == "" {
+func (q *Builder) Build(mode queryMode, table string, data Data) (string, []interface{}, error) {
+	if table == "" {
 		return "", nil, fmt.Errorf("table not specified")
 	}
 	switch mode {
@@ -216,8 +238,8 @@ func (q *Builder) Build(mode queryMode, data Data) (string, []interface{}, error
 		return strings.TrimSpace(fmt.Sprintf(
 			"SELECT %s FROM %s%s%s%s%s%s",
 			buildSelectFields(q.selects),
-			quote(q.table),
-			buildJoin(q.joins, q.table),
+			quote(table),
+			buildJoin(q.joins, table),
 			where,
 			buildOrderBy(q.orders),
 			buildLimit(q.limit),
@@ -233,7 +255,7 @@ func (q *Builder) Build(mode queryMode, data Data) (string, []interface{}, error
 
 		return strings.TrimSpace(fmt.Sprintf(
 			"UPDATE %s SET %s%s%s",
-			quote(q.table),
+			quote(table),
 			updates,
 			where,
 			buildLimit(q.limit),
@@ -252,7 +274,7 @@ func (q *Builder) Build(mode queryMode, data Data) (string, []interface{}, error
 		}
 		return fmt.Sprintf(
 			"INSERT INTO %s (%s) VALUES (%s)",
-			quote(q.table),
+			quote(table),
 			strings.TrimRight(fields, ", "),
 			strings.TrimRight(values, ", "),
 		), binds, nil
@@ -260,7 +282,7 @@ func (q *Builder) Build(mode queryMode, data Data) (string, []interface{}, error
 		where, binds := buildWhere(q.wheres, []interface{}{})
 		return strings.TrimSpace(fmt.Sprintf(
 			"DELETE FROM %s%s",
-			quote(q.table),
+			quote(table),
 			where,
 		)), binds, nil
 	default:

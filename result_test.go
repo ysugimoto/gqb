@@ -119,7 +119,7 @@ func TestFloat64(t *testing.T) {
 func TestBytes(t *testing.T) {
 	t.Run("MustBytes() returns string", func(t *testing.T) {
 		r := gqb.NewResult(map[string]interface{}{
-			"example": []byte("foobarbaz"),
+			"example": "foobarbaz",
 		})
 		assert.Equal(t, []byte("foobarbaz"), r.MustBytes("example"))
 	})
@@ -132,7 +132,7 @@ func TestBytes(t *testing.T) {
 	})
 	t.Run("Bytes() returns expected []byte without error", func(t *testing.T) {
 		r := gqb.NewResult(map[string]interface{}{
-			"example": []byte("value"),
+			"example": "value",
 		})
 		v, err := r.Bytes("example")
 		assert.NoError(t, err)

@@ -29,33 +29,30 @@ func (m mockExecutor) Exec(query string, binds ...interface{}) (sql.Result, erro
 func TestBuildErrorIfTableNotSpecified(t *testing.T) {
 	_, _, err := gqb.New(mockExecutor{}).
 		Where("foo", 1, gqb.Equal).
-		Build(gqb.Select, nil)
+		Build(gqb.Select, "", nil)
 	assert.Error(t, err)
 }
 
 func TestSelectBuildQuery(t *testing.T) {
 	t.Run("Select() only field string", func(t *testing.T) {
 		query, binds, err := gqb.New(mockExecutor{}).
-			Table("example").
 			Select("foo", "bar").
-			Build(gqb.Select, nil)
+			Build(gqb.Select, "example", nil)
 		assert.NoError(t, err)
 		assert.Equal(t, "SELECT `foo`, `bar` FROM `example`", query)
 		assert.Equal(t, len(binds), 0)
 	})
 	t.Run("Select() contains raw field", func(t *testing.T) {
 		query, binds, err := gqb.New(mockExecutor{}).
-			Table("example").
 			Select("foo", gqb.Raw("COUNT(id) AS cnt")).
-			Build(gqb.Select, nil)
+			Build(gqb.Select, "example", nil)
 		assert.NoError(t, err)
 		assert.Equal(t, "SELECT `foo`, COUNT(id) AS cnt FROM `example`", query)
 		assert.Equal(t, len(binds), 0)
 	})
 	t.Run("Without calling Select() uses asterisk", func(t *testing.T) {
 		query, binds, err := gqb.New(mockExecutor{}).
-			Table("example").
-			Build(gqb.Select, nil)
+			Build(gqb.Select, "example", nil)
 		assert.NoError(t, err)
 		assert.Equal(t, "SELECT `*` FROM `example`", query)
 		assert.Equal(t, len(binds), 0)
@@ -64,9 +61,8 @@ func TestSelectBuildQuery(t *testing.T) {
 
 func TestLimitBuildQuery(t *testing.T) {
 	query, binds, err := gqb.New(mockExecutor{}).
-		Table("example").
 		Limit(10).
-		Build(gqb.Select, nil)
+		Build(gqb.Select, "example", nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "SELECT `*` FROM `example` LIMIT 10", query)
 	assert.Equal(t, len(binds), 0)
@@ -74,9 +70,8 @@ func TestLimitBuildQuery(t *testing.T) {
 
 func TestOffsetBuildQuery(t *testing.T) {
 	query, binds, err := gqb.New(mockExecutor{}).
-		Table("example").
 		Offset(10).
-		Build(gqb.Select, nil)
+		Build(gqb.Select, "example", nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "SELECT `*` FROM `example` OFFSET 10", query)
 	assert.Equal(t, len(binds), 0)
