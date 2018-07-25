@@ -184,6 +184,10 @@ func (q *Builder) scan(rows *sql.Rows) (Results, error) {
 	results := Results{}
 	for rows.Next() {
 		scans := make([]interface{}, len(columns))
+		for i := 0; i < len(columns); i++ {
+			var s interface{}
+			scans[i] = &s
+		}
 		if err := rows.Scan(scans...); err != nil {
 			return nil, err
 		}
