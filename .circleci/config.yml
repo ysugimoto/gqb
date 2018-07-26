@@ -23,6 +23,9 @@ jobs:
 
       - save_cache:
           key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
+          paths:
+            - vendor
+            - $(go env GOPATH)/bin
 
 workflows:
   version: 2
