@@ -1,8 +1,13 @@
 #!/bin/bash
 
-echo "CREATE DATABASE IF NOT EXISTS gqb_test;" | mysql -uroot -p -h127.0.0.1 -proot
+DIR=$(cd $(dirname $0) && pwd)
+MYSQLCMD="mysql --defaults-extra-file=${DIR}/my.conf"
 
-mysql -uroot -p -h127.0.0.1 -proot gqb_test << EOS
+echo "Creating database for testing..."
+echo "CREATE DATABASE IF NOT EXISTS gqb_test;" | $MYSQLCMD
+
+echo "Creating table for testing..."
+$MYSQLCMD --database gqb_test << EOS
 CREATE TABLE IF NOT EXISTS companies (
   id int(11) unsigned NOT NULL AUTO_INCREMENT,
   name varchar(255)  NOT NULL,
@@ -10,7 +15,8 @@ CREATE TABLE IF NOT EXISTS companies (
 ) DEFAULT CHARSET=utf8;
 EOS
 
-echo "TRUNCATE TABLE companies;" | mysql -uroot -p -h127.0.0.1 -proot gqb_test
+echo "Reset and insert 10000 records..."
+echo "TRUNCATE TABLE companies;" | $MYSQLCMD --database gqb_test
 
 COUNT=10000
 i=0
@@ -22,12 +28,12 @@ while [ $i -lt $COUNT ]; do
   j=$((++j))
   i=$((++i))
   if [ $j -eq 100 ]; then
-    echo "RUN INSERT"
-    echo "${SQL}${VALUES:2}" | mysql -uroot -p -h127.0.0.1 -proot gqb_test
+    echo "${SQL}${VALUES:2}" | $MYSQLCMD --database gqb_test
     VALUES=""
     j=0
   fi
 done
 if [ "$VALUES" != "" ]; then
-  echo "${SQL}${VALUES:2}" | mysql -uroot -p -h127.0.0.1 -proot gqb_test
+  echo "${SQL}${VALUES:2}" | $MYSQLCMD --database gqb_test
 fi
+echo "Done."

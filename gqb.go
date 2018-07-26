@@ -1,17 +1,16 @@
 package gqb
 
 import (
+	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"database/sql"
 )
 
-type Data map[string]interface{}
-type Raw string
-type queryMode int
-
+// Build query mode constants definition
 const (
 	Select queryMode = iota
 	Update
@@ -19,13 +18,42 @@ const (
 	Delete
 )
 
-type Executor interface {
-	Query(string, ...interface{}) (*sql.Rows, error)
-	Exec(string, ...interface{}) (sql.Result, error)
+type (
+	// Raw type indicates "raw query phrase", it means gqb won't quote any string, columns.
+	// You should tableke carefully when use this type, but it's useful for use function like "COUNT(*)".
+	Raw string
+
+	// queryMode type is build query type switching.
+	queryMode int
+
+	// Data type is used for INSERT/UPDATE data definition.
+	// This is suger syntax for map[string]interface{}, but always fields are sorted by key.
+	Data map[string]interface{}
+)
+
+// Return sorted field name strings
+func (d Data) Keys() []string {
+	keys := make([]string, len(d))
+	i := 0
+	for k := range d {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+	return keys
 }
 
+// SQL executor interface, this is enough to implement QueryContext() and ExecContext().
+// It's useful for running query in transation or not, because Executor accepts both of *sql.DB and *sql.Tx.
+type Executor interface {
+	QueryContext(context.Context, string, ...interface{}) (*sql.Rows, error)
+	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
+}
+
+// Builder is struct for stack some conditions, orders, ... with method chain.
 type Builder struct {
 	db      Executor
+	ctx     context.Context
 	limit   int64
 	offset  int64
 	wheres  []conditionBuilder
@@ -34,12 +62,20 @@ type Builder struct {
 	joins   []Join
 }
 
+// Create new Query Builder
 func New(db Executor) *Builder {
 	return &Builder{
 		db: db,
 	}
 }
 
+// Set current context to builder
+func (q *Builder) Context(ctx context.Context) *Builder {
+	q.ctx = ctx
+	return q
+}
+
+// Reset() resets stacks
 func (q *Builder) Reset() {
 	q.wheres = []conditionBuilder{}
 	q.selects = []interface{}{}
@@ -49,21 +85,25 @@ func (q *Builder) Reset() {
 	q.offset = 0
 }
 
+// Add SELECT fields
 func (q *Builder) Select(fields ...interface{}) *Builder {
 	q.selects = append(q.selects, fields...)
 	return q
 }
 
+// Set LIMIT field
 func (q *Builder) Limit(limit int64) *Builder {
 	q.limit = limit
 	return q
 }
 
+// Set OFFSET field
 func (q *Builder) Offset(offset int64) *Builder {
 	q.offset = offset
 	return q
 }
 
+// Add JOIN table with condition
 func (q *Builder) Join(table, from, to string, c Comparison) *Builder {
 	q.joins = append(q.joins, Join{
 		on: Condition{
@@ -76,12 +116,19 @@ func (q *Builder) Join(table, from, to string, c Comparison) *Builder {
 	return q
 }
 
+// Add WHERE condition group with AND.
+// The first argument is generator function which accepts *ConditionGroup as argument.
+// After call the generator function, add WHERE stack with called state
 func (q *Builder) WhereGroup(generator func(g *ConditionGroup)) *Builder {
 	cg := NewConditionGroup(And)
 	generator(cg)
 	q.wheres = append(q.wheres, cg)
 	return q
 }
+
+// Add WHERE condition group with OR.
+// The first argument is generator function which accepts *ConditionGroup as argument.
+// After call the generator function, add WHERE stack with called state
 func (q *Builder) OrWhereGroup(generator func(g *ConditionGroup)) *Builder {
 	cg := NewConditionGroup(Or)
 	generator(cg)
@@ -89,56 +136,47 @@ func (q *Builder) OrWhereGroup(generator func(g *ConditionGroup)) *Builder {
 	return q
 }
 
+// Add condition
+func (q *Builder) where(field string, value interface{}, comparison Comparison, combine combine) {
+	q.wheres = append(q.wheres, Condition{
+		comparison: comparison,
+		field:      field,
+		value:      value,
+		combine:    combine,
+	})
+}
+
+// Add condition with AND combination
 func (q *Builder) Where(field string, value interface{}, comparison Comparison) *Builder {
-	q.wheres = append(q.wheres, Condition{
-		comparison: comparison,
-		field:      field,
-		value:      value,
-		combine:    And,
-	})
+	q.where(field, value, comparison, And)
 	return q
 }
 
+// Add condition with OR combination
 func (q *Builder) OrWhere(field string, value interface{}, comparison Comparison) *Builder {
-	q.wheres = append(q.wheres, Condition{
-		comparison: comparison,
-		field:      field,
-		value:      value,
-		combine:    Or,
-	})
+	q.where(field, value, comparison, Or)
 	return q
 }
 
+// Add IN condition with AND combination
 func (q *Builder) WhereIn(field string, values ...interface{}) *Builder {
-	q.wheres = append(q.wheres, Condition{
-		comparison: In,
-		field:      field,
-		value:      values,
-		combine:    And,
-	})
+	q.where(field, values, In, And)
 	return q
 }
 
+// Add LIKE condition with AND combination
 func (q *Builder) Like(field string, value interface{}) *Builder {
-	q.wheres = append(q.wheres, Condition{
-		comparison: Like,
-		field:      field,
-		value:      value,
-		combine:    And,
-	})
+	q.where(field, value, Like, And)
 	return q
 }
 
+// Add LIKE condition with OR combination
 func (q *Builder) OrLike(field string, value interface{}) *Builder {
-	q.wheres = append(q.wheres, Condition{
-		comparison: Like,
-		field:      field,
-		value:      value,
-		combine:    Or,
-	})
+	q.where(field, value, Like, Or)
 	return q
 }
 
+// Add ORDER BY condition
 func (q *Builder) OrderBy(field string, sort SortMode) *Builder {
 	q.orders = append(q.orders, Order{
 		field: field,
@@ -147,12 +185,14 @@ func (q *Builder) OrderBy(field string, sort SortMode) *Builder {
 	return q
 }
 
+// Execute query and get first result
 func (q *Builder) GetOne(table string) (*Result, error) {
 	defLimit := q.limit
 	defer func() {
 		q.limit = defLimit
 	}()
 	q.limit = 1
+
 	r, err := q.Get(table)
 	if err != nil {
 		return nil, err
@@ -162,19 +202,31 @@ func (q *Builder) GetOne(table string) (*Result, error) {
 	return r[0], nil
 }
 
+// Get context.Context even if not defined
+func (q *Builder) context() context.Context {
+	if q.ctx != nil {
+		return q.ctx
+	}
+	return context.Background()
+}
+
+// Execute query and get results
 func (q *Builder) Get(table string) (Results, error) {
 	query, binds, err := q.Build(Select, table, nil)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := q.db.Query(query, binds...)
+	rows, err := q.db.QueryContext(q.context(), query, binds...)
 	if err != nil {
 		return nil, err
 	}
+	// gqb close rows pointer automatically so user don't need to care about it.
+	// but allocate some more memories to make results
 	defer rows.Close()
 	return q.scan(rows)
 }
 
+// Scan rows to map to result
 func (q *Builder) scan(rows *sql.Rows) (Results, error) {
 	columns, err := rows.ColumnTypes()
 	if err != nil {
@@ -221,38 +273,40 @@ func (q *Builder) scan(rows *sql.Rows) (Results, error) {
 	return results, err
 }
 
-func (q *Builder) Update(table string, data Data) error {
+// Execute UPDATE query
+func (q *Builder) Update(table string, data Data) (sql.Result, error) {
 	query, binds, err := q.Build(Update, table, data)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = q.db.Exec(query, binds...)
-	return err
+	return q.db.ExecContext(q.context(), query, binds...)
 }
 
-func (q *Builder) Insert(table string, data Data) error {
+// Execute INSERT query
+func (q *Builder) Insert(table string, data Data) (sql.Result, error) {
 	query, binds, err := q.Build(Insert, table, data)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = q.db.Exec(query, binds...)
-	return err
+	return q.db.ExecContext(q.context(), query, binds...)
 }
 
-func (q *Builder) Delete(table string) error {
+// Execute DELETE query
+func (q *Builder) Delete(table string) (sql.Result, error) {
 	query, binds, err := q.Build(Delete, table, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = q.db.Exec(query, binds...)
-	return err
+	return q.db.ExecContext(q.context(), query, binds...)
 }
 
+// Build SQL string and bind paramteres corresponds to query mode
 func (q *Builder) Build(mode queryMode, table string, data Data) (string, []interface{}, error) {
 	if table == "" {
 		return "", nil, fmt.Errorf("table not specified")
 	}
 	switch mode {
+	// Build SELECT query
 	case Select:
 		where, binds := buildWhere(q.wheres, []interface{}{})
 		return strings.TrimSpace(fmt.Sprintf(
@@ -265,12 +319,20 @@ func (q *Builder) Build(mode queryMode, table string, data Data) (string, []inte
 			buildLimit(q.limit),
 			buildOffset(q.offset),
 		)), binds, nil
+
+	// Build UPDATE query
 	case Update:
 		if data == nil {
 			return "", nil, fmt.Errorf("update data must be non-nil")
 		}
-		var where string
-		updates, binds := buildUpdateFields(data, []interface{}{})
+		where := ""
+		binds := []interface{}{}
+		updates := ""
+		for _, k := range data.Keys() {
+			updates += formatField(k) + " = ?, "
+			binds = bind(binds, data[k])
+		}
+		updates = strings.TrimRight(updates, ", ")
 		where, binds = buildWhere(q.wheres, binds)
 
 		return strings.TrimSpace(fmt.Sprintf(
@@ -280,6 +342,8 @@ func (q *Builder) Build(mode queryMode, table string, data Data) (string, []inte
 			where,
 			buildLimit(q.limit),
 		)), binds, nil
+
+	// Build INSERT query
 	case Insert:
 		if data == nil {
 			return "", nil, fmt.Errorf("insert data must be non-nil")
@@ -287,10 +351,10 @@ func (q *Builder) Build(mode queryMode, table string, data Data) (string, []inte
 		binds := []interface{}{}
 		fields := ""
 		values := ""
-		for k, v := range data {
+		for _, k := range data.Keys() {
 			fields += formatField(k) + ", "
 			values += "?, "
-			binds = bind(binds, v)
+			binds = bind(binds, data[k])
 		}
 		return fmt.Sprintf(
 			"INSERT INTO %s (%s) VALUES (%s)",
@@ -298,6 +362,8 @@ func (q *Builder) Build(mode queryMode, table string, data Data) (string, []inte
 			strings.TrimRight(fields, ", "),
 			strings.TrimRight(values, ", "),
 		), binds, nil
+
+	// Build DELETE query
 	case Delete:
 		where, binds := buildWhere(q.wheres, []interface{}{})
 		return strings.TrimSpace(fmt.Sprintf(
@@ -305,6 +371,8 @@ func (q *Builder) Build(mode queryMode, table string, data Data) (string, []inte
 			quote(table),
 			where,
 		)), binds, nil
+
+	// Unexpected
 	default:
 		return "", nil, fmt.Errorf("unexpected query mode specified")
 	}

@@ -1,6 +1,7 @@
 package gqb_test
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 	"time"
@@ -20,10 +21,10 @@ func (s sqlResultMock) RowsAffected() (int64, error) {
 
 type mockExecutor struct{}
 
-func (m mockExecutor) Query(query string, binds ...interface{}) (*sql.Rows, error) {
+func (m mockExecutor) QueryContext(ctx context.Context, query string, binds ...interface{}) (*sql.Rows, error) {
 	return &sql.Rows{}, nil
 }
-func (m mockExecutor) Exec(query string, binds ...interface{}) (sql.Result, error) {
+func (m mockExecutor) ExecContext(ctx context.Context, query string, binds ...interface{}) (sql.Result, error) {
 	return sqlResultMock{}, nil
 }
 

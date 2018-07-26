@@ -9,7 +9,7 @@ import (
 )
 
 func connectDatabase() (*sql.DB, error) {
-	return sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/gqb_test")
+	return sql.Open("mysql", "root:root@tcp(127.0.0.1:63306)/gqb_test")
 }
 
 func BenchmarkNativeSQL(b *testing.B) {

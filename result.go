@@ -7,22 +7,25 @@ import (
 	"time"
 )
 
-type Results []*Result
-
+// Result is struct for SELECT query result mapper
 type Result struct {
+	// values stacks all query result column values as interface{}
 	values map[string]interface{}
 }
 
+// Create Result pointer
 func NewResult(values map[string]interface{}) *Result {
 	return &Result{
 		values: values,
 	}
 }
 
+// json.Marshaller interface implementation
 func (r *Result) MarshalJSON() ([]byte, error) {
 	return json.Marshal(r.values)
 }
 
+// Check field value is nil
 func (r *Result) Nil(f string) bool {
 	if v, ok := r.values[f]; !ok {
 		return true
@@ -31,6 +34,7 @@ func (r *Result) Nil(f string) bool {
 	}
 }
 
+// Force get field value as string
 func (r *Result) MustString(f string) string {
 	if s, err := r.String(f); err != nil {
 		panic(err)
@@ -39,6 +43,7 @@ func (r *Result) MustString(f string) string {
 	}
 }
 
+// Get field value as string with caring type conversion
 func (r *Result) String(f string) (string, error) {
 	if v, ok := r.values[f]; !ok {
 		return "", fmt.Errorf("field %s doesn't exist in result", f)
@@ -49,10 +54,12 @@ func (r *Result) String(f string) (string, error) {
 	}
 }
 
+// Force get field value as int
 func (r *Result) MustInt(f string) int {
 	return r.values[f].(int)
 }
 
+// Get field value as int with caring type conversion
 func (r *Result) Int(f string) (int, error) {
 	if v, ok := r.values[f]; !ok {
 		return 0, fmt.Errorf("field %s doesn't exist in result", f)
@@ -63,24 +70,30 @@ func (r *Result) Int(f string) (int, error) {
 	}
 }
 
+// Force get field value as int64
 func (r *Result) MustInt64(f string) int64 {
 	return r.values[f].(int64)
 }
 
+// Get field value as int64 with caring type conversion
 func (r *Result) Int64(f string) (int64, error) {
 	if v, ok := r.values[f]; !ok {
 		return 0, fmt.Errorf("field %s doesn't exist in result", f)
-	} else if i, ok := v.(int64); !ok {
+	} else if i, ok := v.(int64); ok {
+		return i, nil
+	} else if i, ok := v.(int); !ok {
 		return 0, fmt.Errorf("field %s couldn't cast to int64", f)
 	} else {
-		return i, nil
+		return int64(i), nil
 	}
 }
 
+// Force get field value as float64
 func (r *Result) MustFloat64(f string) float64 {
 	return r.values[f].(float64)
 }
 
+// Get field value as float64 with caring type conversion
 func (r *Result) Float64(f string) (float64, error) {
 	if v, ok := r.values[f]; !ok {
 		return 0, fmt.Errorf("field %s doesn't exist in result", f)
@@ -91,10 +104,12 @@ func (r *Result) Float64(f string) (float64, error) {
 	}
 }
 
+// Force get field value as []byte
 func (r *Result) MustBytes(f string) []byte {
 	return []byte(r.MustString(f))
 }
 
+// Get field value as []byte with caring type conversion
 func (r *Result) Bytes(f string) ([]byte, error) {
 	if s, err := r.String(f); err != nil {
 		return nil, fmt.Errorf("field %s couldn't cast to float64", f)
@@ -103,11 +118,14 @@ func (r *Result) Bytes(f string) ([]byte, error) {
 	}
 }
 
+// Force get field value as time.Time with date format
 func (r *Result) MustDate(f string) time.Time {
 	t, _ := time.Parse(dateFormat, r.MustString(f))
 	return t
 }
 
+// Get field value as time.Time with caring type conversion, time parsing.
+// The value must be and date format string
 func (r *Result) Date(f string) (time.Time, error) {
 	if v, err := r.String(f); err != nil {
 		return time.Time{}, err
@@ -118,11 +136,14 @@ func (r *Result) Date(f string) (time.Time, error) {
 	}
 }
 
+// Force get field value as time.Time with datetime format
 func (r *Result) MustDatetime(f string) time.Time {
 	t, _ := time.Parse(timeFormat, r.MustString(f))
 	return t
 }
 
+// Get field value as time.Time with caring type conversion, time parsing.
+// The value must be and dateitme format string
 func (r *Result) Datetime(f string) (time.Time, error) {
 	if v, err := r.String(f); err != nil {
 		return time.Time{}, err
@@ -133,6 +154,7 @@ func (r *Result) Datetime(f string) (time.Time, error) {
 	}
 }
 
+// parseTag() parses Strcut tag to name-value map
 func parseTag(tag string) (map[string]string, error) {
 	parsed := make(map[string]string)
 	var stack string
@@ -166,67 +188,171 @@ func parseTag(tag string) (map[string]string, error) {
 	return parsed, nil
 }
 
+// Map() assigns query result into supplied struct field values
 func (r *Result) Map(dest interface{}) error {
 	if dest == nil {
 		return fmt.Errorf("destination value must be non-nil")
 	}
 	v := reflect.ValueOf(dest)
-	if v.Kind() != reflect.Ptr {
+	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
 	if v.Kind() != reflect.Struct {
 		return fmt.Errorf("destination value must be a struct")
 	}
+	if !v.CanSet() {
+		return fmt.Errorf("destination value cannot set")
+	}
 	rt := v.Type()
 	for i := 0; i < rt.NumField(); i++ {
 		f := rt.Field(i)
 		if err := r.mapStructField(f, v.Field(i)); err != nil {
-			return fmt.Errorf("failed to map value to struct field: %s", f.Name)
+			return fmt.Errorf("failed to map value to struct field: %s, %s", f.Name, err.Error())
 		}
 	}
 	return nil
 }
 
+// mapStructField() assigns value to struct field
 func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 	tag, err := parseTag(string(f.Tag))
-	if err == nil {
+	if err != nil {
 		return err
 	}
-	if f.Type.Kind() == reflect.Ptr {
-		return r.mapStructField(f, reflect.Indirect(v))
+	t := f.Type
+	var isPtr bool
+	if t.Kind() == reflect.Ptr {
+		isPtr = true
+		t = t.Elem()
+	}
+	if !v.CanSet() {
+		return nil
 	}
 	name, ok := tag["gqb"]
 	if !ok {
 		return nil
 	}
-	switch f.Type.Kind() {
+	switch t.Kind() {
 	case reflect.String:
 		if s, err := r.String(name); err != nil {
 			return err
+		} else if isPtr {
+			v.Set(reflect.ValueOf(&s))
 		} else {
 			v.SetString(s)
 		}
 	case reflect.Bool:
 		if i, err := r.Int(name); err != nil {
 			return err
+		} else if isPtr {
+			b := i > 0
+			v.Set(reflect.ValueOf(&b))
 		} else {
 			v.SetBool(i > 0)
 		}
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int:
 		if i, err := r.Int64(name); err != nil {
 			return err
+		} else if isPtr {
+			ii := int(i)
+			v.Set(reflect.ValueOf(&ii))
 		} else {
 			v.SetInt(i)
 		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Int8:
 		if i, err := r.Int64(name); err != nil {
 			return err
+		} else if isPtr {
+			ii := int8(i)
+			v.Set(reflect.ValueOf(&ii))
+		} else {
+			v.SetInt(i)
+		}
+	case reflect.Int16:
+		if i, err := r.Int64(name); err != nil {
+			return err
+		} else if isPtr {
+			ii := int16(i)
+			v.Set(reflect.ValueOf(&ii))
+		} else {
+			v.SetInt(i)
+		}
+	case reflect.Int32:
+		if i, err := r.Int64(name); err != nil {
+			return err
+		} else if isPtr {
+			ii := int32(i)
+			v.Set(reflect.ValueOf(&ii))
+		} else {
+			v.SetInt(i)
+		}
+	case reflect.Int64:
+		if i, err := r.Int64(name); err != nil {
+			return err
+		} else if isPtr {
+			v.Set(reflect.ValueOf(&i))
+		} else {
+			v.SetInt(i)
+		}
+	case reflect.Uint:
+		if i, err := r.Int64(name); err != nil {
+			return err
+		} else if isPtr {
+			ui := uint(i)
+			v.Set(reflect.ValueOf(&ui))
 		} else {
 			v.SetUint(uint64(i))
 		}
-	case reflect.Float32, reflect.Float64:
+	case reflect.Uint8:
+		if i, err := r.Int64(name); err != nil {
+			return err
+		} else if isPtr {
+			ui := uint8(i)
+			v.Set(reflect.ValueOf(&ui))
+		} else {
+			v.SetUint(uint64(i))
+		}
+	case reflect.Uint16:
+		if i, err := r.Int64(name); err != nil {
+			return err
+		} else if isPtr {
+			ui := uint16(i)
+			v.Set(reflect.ValueOf(&ui))
+		} else {
+			v.SetUint(uint64(i))
+		}
+	case reflect.Uint32:
+		if i, err := r.Int64(name); err != nil {
+			return err
+		} else if isPtr {
+			ui := uint32(i)
+			v.Set(reflect.ValueOf(&ui))
+		} else {
+			v.SetUint(uint64(i))
+		}
+	case reflect.Uint64:
+		if i, err := r.Int64(name); err != nil {
+			return err
+		} else if isPtr {
+			ui := uint64(i)
+			v.Set(reflect.ValueOf(&ui))
+		} else {
+			v.SetUint(uint64(i))
+		}
+	case reflect.Float32:
 		if i, err := r.Float64(name); err != nil {
 			return err
+		} else if isPtr {
+			f32 := float32(i)
+			v.Set(reflect.ValueOf(&f32))
+		} else {
+			v.SetFloat(i)
+		}
+	case reflect.Float64:
+		if i, err := r.Float64(name); err != nil {
+			return err
+		} else if isPtr {
+			v.Set(reflect.ValueOf(&i))
 		} else {
 			v.SetFloat(i)
 		}
@@ -234,32 +360,37 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 	return nil
 }
 
-// func (r Results) Map(dest interface{}) error {
-// 	if dest == nil {
-// 		return fmt.Errorf("destination value must be non-nil")
-// 	}
-// 	v := reflect.ValueOf(dest)
-// 	if v.Kind() != reflect.Ptr {
-// 		v = v.Elem()
-// 	}
-// 	if v.Kind() != reflect.Slice {
-// 		return fmt.Errorf("destination value must be a slice")
-// 	}
-// 	for , result := range r {
-// 		result.Map(
-// 	}
-// 	for i := 0; i < v.Len(); i++ {
-// 		vv := v.Index(i)
-// 		if vv.Kind() != reflect.Ptr {
-// 			vv = vv.Elem()
-// 		}
-// 		rt := vv.Type()
-// 		for j := 0; j < rt.NumField(); j++ {
-// 			f := rt.Field(j)
-// 			if err := mapStructField(f, vv.Field(j)); err != nil {
-// 				return fmt.Errorf("failed to map value to struct field: %s", f.Name)
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }
+// Short syntax for []*Result
+type Results []*Result
+
+// Map() assigns query result into supplied struct field values recursively
+func (r Results) Map(dest interface{}) error {
+	if dest == nil {
+		return fmt.Errorf("destination value must be non-nil")
+	}
+	v := reflect.ValueOf(dest)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Slice {
+		return fmt.Errorf("destination value must be a slice")
+	}
+	t := v.Type()
+	isPtr := t.Kind() == reflect.Ptr
+	if isPtr {
+		t = t.Elem()
+	}
+	direct := reflect.Indirect(v)
+	for _, result := range r {
+		row := reflect.New(t.Elem())
+		if err := result.Map(row.Interface()); err != nil {
+			return err
+		}
+		if isPtr {
+			direct.Set(reflect.Append(direct, row))
+		} else {
+			direct.Set(reflect.Append(direct, reflect.Indirect(row)))
+		}
+	}
+	return nil
+}

@@ -187,3 +187,70 @@ func TestDatetime(t *testing.T) {
 		assert.IsType(t, time.Time{}, v)
 	})
 }
+
+func TestResultMap(t *testing.T) {
+	t.Run("Map to stack struct", func(t *testing.T) {
+		type User struct {
+			Name string `gqb:"name"`
+			Id   int64  `gqb:"id"`
+		}
+		r := gqb.NewResult(map[string]interface{}{
+			"name": "John",
+			"id":   1,
+		})
+		u := User{}
+		assert.NoError(t, r.Map(&u))
+		assert.Equal(t, "John", u.Name)
+		assert.Equal(t, int64(1), u.Id)
+	})
+	t.Run("Map to stack struct contains pointer field", func(t *testing.T) {
+		type User struct {
+			Name string `gqb:"name"`
+			Id   *int   `gqb:"id"`
+		}
+		r := gqb.NewResult(map[string]interface{}{
+			"name": "John",
+			"id":   1,
+		})
+		u := User{}
+		assert.NoError(t, r.Map(&u))
+		assert.Equal(t, "John", u.Name)
+		assert.Equal(t, 1, *u.Id)
+	})
+	t.Run("Map to pointer struct", func(t *testing.T) {
+		type User struct {
+			Name string `gqb:"name"`
+			Id   int64  `gqb:"id"`
+		}
+		r := gqb.NewResult(map[string]interface{}{
+			"name": "John",
+			"id":   1,
+		})
+		u := &User{}
+		assert.NoError(t, r.Map(u))
+		assert.Equal(t, "John", u.Name)
+		assert.Equal(t, int64(1), u.Id)
+	})
+}
+
+func TestResultsMap(t *testing.T) {
+	rs := gqb.Results{}
+	rs = append(rs,
+		gqb.NewResult(map[string]interface{}{"name": "John", "id": 1}),
+		gqb.NewResult(map[string]interface{}{"name": "Jane", "id": 2}),
+		gqb.NewResult(map[string]interface{}{"name": "Alex", "id": 3}),
+	)
+	type User struct {
+		Name string `gqb:"name"`
+		Id   int64  `gqb:"id"`
+	}
+	u := []User{}
+	assert.NoError(t, rs.Map(&u))
+	assert.Equal(t, 3, len(u))
+	assert.Equal(t, "John", u[0].Name)
+	assert.Equal(t, int64(1), u[0].Id)
+	assert.Equal(t, "Jane", u[1].Name)
+	assert.Equal(t, int64(2), u[1].Id)
+	assert.Equal(t, "Alex", u[2].Name)
+	assert.Equal(t, int64(3), u[2].Id)
+}
