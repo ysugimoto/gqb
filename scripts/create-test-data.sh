@@ -18,7 +18,7 @@ EOS
 echo "Reset and insert 10000 records..."
 echo "TRUNCATE TABLE companies;" | $MYSQLCMD --database gqb_test
 
-COUNT=10000
+COUNT=$1
 i=0
 j=0
 SQL="INSERT INTO companies (name) VALUES "
