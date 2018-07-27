@@ -2,7 +2,7 @@
 
 ## Features
 - Build SQL easily through the method chains
-- Retunrs abstact scanned result
+- Returns abstact scanned result
 - Query results can marshal JSON directly
 
 ## Installation
