@@ -25,10 +25,7 @@ jobs:
           command: dep ensure
       - run:
           name: Run test
-          command: make test
-      - run:
-          name: Run benchmark with real database
-          command: make bench
+          command: make ci
 
       - save_cache:
           key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
