@@ -4,21 +4,19 @@
 - `gqb` retunrs abstact scanned result. Especially it's useful for _JOIN-ed_ query result
 - Query results can marshal JSON directly
 
+Note that `gqb` is just only for query bulder, so query exection, prepared statement, escaping bind parameters depend on `databae/sql`.
+
 ## Installation
 
-```
+```shell
 go get -u github.com/ysugimoto/gqb
 ```
-
-## Support database
-
-Now we only tested on MySQL.
 
 ## Usage
 
 Example database is here (MySQL):
 
-```
+```sql
 CREATE TABLE IF NOT EXISTS companies (
   id int(11) unsigned NOT NULL AUTO_INCREMENT,
   name varchar(255) NOT NULL,
@@ -39,7 +37,7 @@ INSERT INTO companie_attributes (company_id, url) VALUES (1, 'https://google.com
 
 And make sure `*sql.DB` is created propery:
 
-```
+```go
 // connect database as you expected
 db, err := sql.Open("mysql", "user:pass@tcp(127.0.0.1:3306)/db_name")
 if err != nil {
@@ -52,7 +50,9 @@ defer db.Close()
 
 #### General SELECT query usage
 
-```
+The following example maybe genetic usage. We expects 
+
+```go
 results, err := gqb.New(db).
   Select("name").
   Where("id", 3, gqb.Lt).
@@ -86,7 +86,7 @@ If you want to get a single record, you can call `GetOne("companies")` instead.
 
 #### Use JOIN case
 
-```
+```go
 result, err := gqb.New(db).
   Select("name", "url").
   Join("company_attributes", "company_id", "id", gqb.Equal).
