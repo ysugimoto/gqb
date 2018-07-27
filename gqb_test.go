@@ -35,6 +35,13 @@ func TestBuildErrorIfTableNotSpecified(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestTableAliasing(t *testing.T) {
+	query, _, err := gqb.New(mockExecutor{}).
+		Build(gqb.Select, gqb.Alias("example", "E"), nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT `*` FROM `example` AS `E`", query)
+}
+
 func TestSelectBuildQuery(t *testing.T) {
 	t.Run("Select() only field string", func(t *testing.T) {
 		query, binds, err := gqb.New(mockExecutor{}).
@@ -50,6 +57,14 @@ func TestSelectBuildQuery(t *testing.T) {
 			Build(gqb.Select, "example", nil)
 		assert.NoError(t, err)
 		assert.Equal(t, "SELECT `foo`, COUNT(id) AS cnt FROM `example`", query)
+		assert.Equal(t, 0, len(binds))
+	})
+	t.Run("Select() contains alias field", func(t *testing.T) {
+		query, binds, err := gqb.New(mockExecutor{}).
+			Select("foo", gqb.Alias("example.bar", "baz")).
+			Build(gqb.Select, "example", nil)
+		assert.NoError(t, err)
+		assert.Equal(t, "SELECT `foo`, `example`.`bar` AS `baz` FROM `example`", query)
 		assert.Equal(t, 0, len(binds))
 	})
 	t.Run("Without calling Select() uses asterisk", func(t *testing.T) {

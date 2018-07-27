@@ -189,68 +189,140 @@ func TestDatetime(t *testing.T) {
 }
 
 func TestResultMap(t *testing.T) {
-	t.Run("Map to stack struct", func(t *testing.T) {
-		type User struct {
-			Name string `gqb:"name"`
-			Id   int64  `gqb:"id"`
-		}
-		r := gqb.NewResult(map[string]interface{}{
-			"name": "John",
-			"id":   1,
-		})
-		u := User{}
-		assert.NoError(t, r.Map(&u))
-		assert.Equal(t, "John", u.Name)
-		assert.Equal(t, int64(1), u.Id)
-	})
-	t.Run("Map to stack struct contains pointer field", func(t *testing.T) {
-		type User struct {
-			Name string `gqb:"name"`
-			Id   *int   `gqb:"id"`
-		}
-		r := gqb.NewResult(map[string]interface{}{
-			"name": "John",
-			"id":   1,
-		})
-		u := User{}
-		assert.NoError(t, r.Map(&u))
-		assert.Equal(t, "John", u.Name)
-		assert.Equal(t, 1, *u.Id)
-	})
-	t.Run("Map to pointer struct", func(t *testing.T) {
-		type User struct {
-			Name string `gqb:"name"`
-			Id   int64  `gqb:"id"`
-		}
-		r := gqb.NewResult(map[string]interface{}{
-			"name": "John",
-			"id":   1,
-		})
-		u := &User{}
-		assert.NoError(t, r.Map(u))
-		assert.Equal(t, "John", u.Name)
-		assert.Equal(t, int64(1), u.Id)
-	})
-}
-
-func TestResultsMap(t *testing.T) {
-	rs := gqb.Results{}
-	rs = append(rs,
-		gqb.NewResult(map[string]interface{}{"name": "John", "id": 1}),
-		gqb.NewResult(map[string]interface{}{"name": "Jane", "id": 2}),
-		gqb.NewResult(map[string]interface{}{"name": "Alex", "id": 3}),
-	)
-	type User struct {
-		Name string `gqb:"name"`
-		Id   int64  `gqb:"id"`
+	type Mapper struct {
+		Str      string   `db:"str"`
+		Id       int64    `db:"id"`
+		Id8      int8     `db:"id8"`
+		Id16     int16    `db:"id16"`
+		Id32     int32    `db:"id32"`
+		Uid      uint64   `db:"uid"`
+		Uid8     uint8    `db:"uid8"`
+		Uid16    uint16   `db:"uid16"`
+		Uid32    uint32   `db:"uid32"`
+		Rate     float64  `db:"rate"`
+		Rate32   float32  `db:"rate32"`
+		IsOK     bool     `db:"is_ok"`
+		Nullable *string  `db:"nullable"`
+		PStr     *string  `db:"p_str"`
+		PId      *int64   `db:"p_id"`
+		PId8     *int8    `db:"p_id8"`
+		PId16    *int16   `db:"p_id16"`
+		PId32    *int32   `db:"p_id32"`
+		PUid     *uint64  `db:"p_uid"`
+		PUid8    *uint8   `db:"p_uid8"`
+		PUid16   *uint16  `db:"p_uid16"`
+		PUid32   *uint32  `db:"p_uid32"`
+		PRate    *float64 `db:"p_rate"`
+		PRate32  *float32 `db:"p_rate32"`
+		PIsOK    *bool    `db:"p_is_ok"`
 	}
-	u := []User{}
-	assert.NoError(t, rs.Map(&u))
-	assert.Equal(t, 3, len(u))
-	assert.Equal(t, "John", u[0].Name)
-	assert.Equal(t, int64(1), u[0].Id)
-	assert.Equal(t, "Jane", u[1].Name)
-	assert.Equal(t, int64(2), u[1].Id)
-	assert.Equal(t, "Alex", u[2].Name)
-	assert.Equal(t, int64(3), u[2].Id)
+
+	str := "foobar"
+	id := 1
+	id8 := 2
+	id16 := 4
+	id32 := 8
+	uid := 1
+	uid8 := 2
+	uid16 := 4
+	uid32 := 8
+	rate := 0.8
+	rate32 := 1.8
+	is_ok := 0
+
+	createResult := func() *gqb.Result {
+		return gqb.NewResult(map[string]interface{}{
+			"str":      str,
+			"id":       id,
+			"id8":      id8,
+			"id16":     id16,
+			"id32":     id32,
+			"uid":      uid,
+			"uid8":     uid8,
+			"uid16":    uid16,
+			"uid32":    uid32,
+			"rate":     rate,
+			"rate32":   rate32,
+			"is_ok":    is_ok,
+			"p_str":    str,
+			"p_id":     id,
+			"p_id8":    id8,
+			"p_id16":   id16,
+			"p_id32":   id32,
+			"p_uid":    uid,
+			"p_uid8":   uid8,
+			"p_uid16":  uid16,
+			"p_uid32":  uid32,
+			"p_rate":   rate,
+			"p_rate32": rate32,
+			"p_is_ok":  is_ok,
+		})
+	}
+
+	assertion := func(m Mapper) {
+		assert.Equal(t, str, m.Str)
+		assert.Equal(t, int64(id), m.Id)
+		assert.Equal(t, int8(id8), m.Id8)
+		assert.Equal(t, int16(id16), m.Id16)
+		assert.Equal(t, int32(id32), m.Id32)
+		assert.Equal(t, uint64(uid), m.Uid)
+		assert.Equal(t, uint8(uid8), m.Uid8)
+		assert.Equal(t, uint16(uid16), m.Uid16)
+		assert.Equal(t, uint32(uid32), m.Uid32)
+		assert.Equal(t, float64(rate), m.Rate)
+		assert.Equal(t, float32(rate32), m.Rate32)
+		assert.Equal(t, false, m.IsOK)
+		assert.Equal(t, str, *m.PStr)
+		assert.Equal(t, int64(id), *m.PId)
+		assert.Equal(t, int8(id8), *m.PId8)
+		assert.Equal(t, int16(id16), *m.PId16)
+		assert.Equal(t, int32(id32), *m.PId32)
+		assert.Equal(t, uint64(uid), *m.PUid)
+		assert.Equal(t, uint8(uid8), *m.PUid8)
+		assert.Equal(t, uint16(uid16), *m.PUid16)
+		assert.Equal(t, uint32(uid32), *m.PUid32)
+		assert.Equal(t, float64(rate), *m.PRate)
+		assert.Equal(t, float32(rate32), *m.PRate32)
+		assert.Equal(t, false, *m.PIsOK)
+	}
+
+	t.Run("Map to stack struct", func(t *testing.T) {
+		r := createResult()
+		m := Mapper{}
+		assert.NoError(t, r.Map(&m))
+		assertion(m)
+	})
+
+	t.Run("Map to pointer struct", func(t *testing.T) {
+		r := createResult()
+		m := &Mapper{}
+		assert.NoError(t, r.Map(&m))
+		// assertion(*m)
+	})
+
+	// t.Run("Map to stack struct for result list", func(t *testing.T) {
+	// 	rs := gqb.Results{}
+	// 	for i := 0; i < 10; i++ {
+	// 		rs = append(rs, createResult())
+	// 	}
+	// 	ms := []Mapper{}
+	// 	assert.NoError(t, rs.Map(&ms))
+	// 	assert.Equal(t, 10, len(ms))
+	// 	for _, v := range ms {
+	// 		assertion(v)
+	// 	}
+	// })
+
+	// t.Run("Map to pointer struct for result list", func(t *testing.T) {
+	// 	rs := gqb.Results{}
+	// 	for i := 0; i < 10; i++ {
+	// 		rs = append(rs, createResult())
+	// 	}
+	// 	ms := []*Mapper{}
+	// 	assert.NoError(t, rs.Map(&ms))
+	// 	assert.Equal(t, 10, len(ms))
+	// 	for _, v := range ms {
+	// 		assertion(*v)
+	// 	}
+	// })
 }

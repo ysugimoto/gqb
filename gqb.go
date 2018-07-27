@@ -29,7 +29,32 @@ type (
 	// Data type is used for INSERT/UPDATE data definition.
 	// This is suger syntax for map[string]interface{}, but always fields are sorted by key.
 	Data map[string]interface{}
+
+	// alias type is used for SELECT, create alias column name.
+	// This will be useful for using JOIN query.
+	alias struct {
+		from string
+		to   string
+	}
 )
+
+// Alias() returns formatted alias struct
+func Alias(from, to string) alias {
+	return alias{
+		from: from,
+		to:   to,
+	}
+}
+
+// fmt.Stringer intetface satisfies
+func (a alias) String() string {
+	return formatField(a.from) + " AS " + formatField(a.to)
+}
+
+// fmt.Stringer intetface satisfies
+func (r Raw) String() string {
+	return string(r)
+}
 
 // Return sorted field name strings
 func (d Data) Keys() []string {
@@ -186,7 +211,7 @@ func (q *Builder) OrderBy(field string, sort SortMode) *Builder {
 }
 
 // Execute query and get first result
-func (q *Builder) GetOne(table string) (*Result, error) {
+func (q *Builder) GetOne(table interface{}) (*Result, error) {
 	defLimit := q.limit
 	defer func() {
 		q.limit = defLimit
@@ -211,7 +236,7 @@ func (q *Builder) context() context.Context {
 }
 
 // Execute query and get results
-func (q *Builder) Get(table string) (Results, error) {
+func (q *Builder) Get(table interface{}) (Results, error) {
 	query, binds, err := q.Build(Select, table, nil)
 	if err != nil {
 		return nil, err
@@ -274,7 +299,7 @@ func (q *Builder) scan(rows *sql.Rows) (Results, error) {
 }
 
 // Execute UPDATE query
-func (q *Builder) Update(table string, data Data) (sql.Result, error) {
+func (q *Builder) Update(table interface{}, data Data) (sql.Result, error) {
 	query, binds, err := q.Build(Update, table, data)
 	if err != nil {
 		return nil, err
@@ -283,7 +308,7 @@ func (q *Builder) Update(table string, data Data) (sql.Result, error) {
 }
 
 // Execute INSERT query
-func (q *Builder) Insert(table string, data Data) (sql.Result, error) {
+func (q *Builder) Insert(table interface{}, data Data) (sql.Result, error) {
 	query, binds, err := q.Build(Insert, table, data)
 	if err != nil {
 		return nil, err
@@ -292,7 +317,7 @@ func (q *Builder) Insert(table string, data Data) (sql.Result, error) {
 }
 
 // Execute DELETE query
-func (q *Builder) Delete(table string) (sql.Result, error) {
+func (q *Builder) Delete(table interface{}) (sql.Result, error) {
 	query, binds, err := q.Build(Delete, table, nil)
 	if err != nil {
 		return nil, err
@@ -301,9 +326,10 @@ func (q *Builder) Delete(table string) (sql.Result, error) {
 }
 
 // Build SQL string and bind paramteres corresponds to query mode
-func (q *Builder) Build(mode queryMode, table string, data Data) (string, []interface{}, error) {
-	if table == "" {
-		return "", nil, fmt.Errorf("table not specified")
+func (q *Builder) Build(mode queryMode, table interface{}, data Data) (string, []interface{}, error) {
+	mainTable := toString(table)
+	if mainTable == "" {
+		return "", nil, fmt.Errorf("table not specified or empty")
 	}
 	switch mode {
 	// Build SELECT query
@@ -312,8 +338,8 @@ func (q *Builder) Build(mode queryMode, table string, data Data) (string, []inte
 		return strings.TrimSpace(fmt.Sprintf(
 			"SELECT %s FROM %s%s%s%s%s%s",
 			buildSelectFields(q.selects),
-			quote(table),
-			buildJoin(q.joins, table),
+			mainTable,
+			buildJoin(q.joins, mainTable),
 			where,
 			buildOrderBy(q.orders),
 			buildLimit(q.limit),
@@ -337,7 +363,7 @@ func (q *Builder) Build(mode queryMode, table string, data Data) (string, []inte
 
 		return strings.TrimSpace(fmt.Sprintf(
 			"UPDATE %s SET %s%s%s",
-			quote(table),
+			mainTable,
 			updates,
 			where,
 			buildLimit(q.limit),
@@ -358,7 +384,7 @@ func (q *Builder) Build(mode queryMode, table string, data Data) (string, []inte
 		}
 		return fmt.Sprintf(
 			"INSERT INTO %s (%s) VALUES (%s)",
-			quote(table),
+			mainTable,
 			strings.TrimRight(fields, ", "),
 			strings.TrimRight(values, ", "),
 		), binds, nil
@@ -368,7 +394,7 @@ func (q *Builder) Build(mode queryMode, table string, data Data) (string, []inte
 		where, binds := buildWhere(q.wheres, []interface{}{})
 		return strings.TrimSpace(fmt.Sprintf(
 			"DELETE FROM %s%s",
-			quote(table),
+			mainTable,
 			where,
 		)), binds, nil
 

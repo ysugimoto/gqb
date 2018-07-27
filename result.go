@@ -25,6 +25,12 @@ func (r *Result) MarshalJSON() ([]byte, error) {
 	return json.Marshal(r.values)
 }
 
+// Check value corresponds to field existence
+func (r *Result) exists(f string) bool {
+	_, ok := r.values[f]
+	return ok
+}
+
 // Check field value is nil
 func (r *Result) Nil(f string) bool {
 	if v, ok := r.values[f]; !ok {
@@ -154,51 +160,14 @@ func (r *Result) Datetime(f string) (time.Time, error) {
 	}
 }
 
-// parseTag() parses Strcut tag to name-value map
-func parseTag(tag string) (map[string]string, error) {
-	parsed := make(map[string]string)
-	var stack string
-	var valueStart bool
-	var key string
-	for i, b := range []byte(tag) {
-		switch b {
-		case ':':
-			if stack == "" {
-				return nil, fmt.Errorf(`syntax error: unexpected ":" is present %s on %d`, tag, i)
-			}
-			key = stack
-			stack = ""
-		case '"':
-			if !valueStart {
-				valueStart = true
-			} else {
-				parsed[key] = stack
-				valueStart = false
-			}
-			stack = ""
-		case ' ':
-			continue
-		default:
-			stack += string(b)
-		}
-	}
-	if stack != "" {
-		return nil, fmt.Errorf(`syntax error: invalid sting is remaining: %s`, tag)
-	}
-	return parsed, nil
-}
-
 // Map() assigns query result into supplied struct field values
 func (r *Result) Map(dest interface{}) error {
 	if dest == nil {
 		return fmt.Errorf("destination value must be non-nil")
 	}
-	v := reflect.ValueOf(dest)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
+	v := derefValue(reflect.ValueOf(dest))
 	if v.Kind() != reflect.Struct {
-		return fmt.Errorf("destination value must be a struct")
+		return fmt.Errorf("destination value must be a struct: %d", v.Kind())
 	}
 	if !v.CanSet() {
 		return fmt.Errorf("destination value cannot set")
@@ -223,13 +192,15 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 	var isPtr bool
 	if t.Kind() == reflect.Ptr {
 		isPtr = true
-		t = t.Elem()
+		t = derefType(t)
 	}
 	if !v.CanSet() {
+		fmt.Printf("%s is cannot set\n", f.Name)
 		return nil
 	}
-	name, ok := tag["gqb"]
-	if !ok {
+	name, ok := tag["db"]
+	// tag field doesn't exist or actual result value doesn't exist, no assign
+	if !ok || !r.exists(name) {
 		return nil
 	}
 	switch t.Kind() {

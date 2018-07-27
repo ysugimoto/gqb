@@ -19,8 +19,20 @@ func quote(str string) string {
 	return "`" + strings.Trim(str, "`") + "`"
 }
 
+func toString(v interface{}) string {
+	if s, ok := v.(fmt.Stringer); ok {
+		return s.String()
+	} else if s, ok := v.(string); ok {
+		return formatField(s)
+	}
+	return ""
+}
+
 // formatField() adds back quote by splitting table and column
 func formatField(str string) string {
+	if str == "" {
+		return str
+	}
 	split := strings.Split(str, ".")
 	for i, _ := range split {
 		split[i] = quote(split[i])
@@ -50,14 +62,7 @@ func buildSelectFields(selects []interface{}) string {
 	}
 	fields := ""
 	for _, f := range selects {
-		switch f.(type) {
-		case Raw:
-			v := f.(Raw)
-			fields += string(v) + ", "
-		case string:
-			v := f.(string)
-			fields += formatField(v) + ", "
-		}
+		fields += toString(f) + ", "
 	}
 	return strings.TrimRight(fields, ", ")
 }

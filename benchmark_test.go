@@ -2,6 +2,7 @@ package gqb_test
 
 import (
 	"database/sql"
+	"os"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -9,7 +10,7 @@ import (
 )
 
 func connectDatabase() (*sql.DB, error) {
-	return sql.Open("mysql", "root:root@tcp(127.0.0.1:63306)/gqb_test")
+	return sql.Open("mysql", "root:root@tcp(127.0.0.1:"+os.Getenv("GQB_MYSQL_PORT")+")/gqb_test")
 }
 
 func BenchmarkNativeSQL(b *testing.B) {
