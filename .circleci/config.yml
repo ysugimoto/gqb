@@ -4,6 +4,11 @@ jobs:
     working_directory: /go/src/github.com/ysugimoto/gqb
     docker:
       - image: circleci/golang:1.10
+      - image: mysql:5.7
+          environment:
+            MYSQL_ROOT_PASSWORD: root
+    environment:
+      GQB_MYSQL_PORT: 3306
     steps:
       - checkout
       - run:
@@ -20,6 +25,9 @@ jobs:
       - run:
           name: Run test
           command: make test
+      - run:
+          name: Run benchmark with real database
+          command: make bench
 
       - save_cache:
           key: v1-go-vendor-{{ checksum "Gopkg.lock" }}
