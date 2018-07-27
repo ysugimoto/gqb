@@ -1,4 +1,4 @@
-`gqb` is a simple Query Builder for Golang.
+# Simple Query Builder for Golang.
 
 - Build SQL easily through the method chains
 - `gqb` retunrs abstact scanned result. Especially it's useful for _JOIN-ed_ query result
