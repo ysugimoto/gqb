@@ -7,7 +7,7 @@ echo "Creating database for example..."
 echo "CREATE DATABASE IF NOT EXISTS example;" | $MYSQLCMD
 
 echo "Creating table for testing..."
-$MYSQLCMD --database gqb_test << EOS
+$MYSQLCMD --database example << EOS
 CREATE TABLE IF NOT EXISTS companies (
   id int(11) unsigned NOT NULL AUTO_INCREMENT,
   name varchar(255) NOT NULL,
