@@ -1,4 +1,4 @@
-# Simple Query Builder for Golang.
+# gqb - Golang Simple Query Builder
 
 ## Features
 - Build SQL easily through the method chains
