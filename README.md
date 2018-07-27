@@ -2,7 +2,7 @@
 
 ## Features
 - Build SQL easily through the method chains
-- `gqb` retunrs abstact scanned result. Especially it's useful for _JOIN-ed_ query result
+- Retunrs abstact scanned result
 - Query results can marshal JSON directly
 
 ## Installation
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS company_attributes (
 INSERT INTO companie_attributes (company_id, url) VALUES (1, 'https://google.com'), (2, 'https://apple.com'), (3, 'https://microsoft.com');
 ```
 
-And make sure `*sql.DB` is created propery:
+And make sure `*sql.DB` is created properly:
 
 ```go
 // connect database as you expected
@@ -49,7 +49,7 @@ defer db.Close()
 
 The following example maybe generic usage. We expects SQL as:
 
-```
+```sql
 SELECT name FROM companies WHERE id = 3;
 ```
 
@@ -85,7 +85,7 @@ fmt.Println(companies[0].Name) //=> Google
 ```
 
 If you want to get a single record, you can call `GetOne("companies")` instead.
-To leaan more example usage, see examples.
+To leaan more example usage, see [examples](https://github.com/ysugimoto/gqb/tree/master/examples).
 
 ## Query Execution
 
@@ -93,8 +93,8 @@ Note that `gqb` is just only for query bulder, so query exection, prepared state
 
 `gqb.New(db)` of first argument accepts `gqb.Executor` interface which has a couple of methods:
 
-- `QueryContext(context.Context, query string, binds ...interface{})`
-- `ExecContext(context.Context, query string, binds ...interface{})`
+- `QueryContext(ctx context.Context, query string, binds ...interface{})`
+- `ExecContext(ctx context.Context, query string, binds ...interface{})`
 
 It means you can use as same syntax in transaction. `gqb.new(*sql.Tx)` also valid.
 
@@ -128,6 +128,31 @@ it will map values to field which corresponds to tag value of `db:"field"`.
 - float64 / \*float64
 
 `[]byte`, corresponds to `blob` type column not supported.yet.
+
+## Benchmarks
+
+Native SQL vs `gqb` Query Builder.
+
+100 records:
+
+```
+BenchmarkNativeSQL-8                2000            696598 ns/op            1072 B/op         34 allocs/op
+BenchmarkQueryBuilder-8             2000            653312 ns/op            2910 B/op         87 allocs/op
+```
+
+1000 records:
+
+```
+BenchmarkNativeSQL-8                2000            738930 ns/op            1076 B/op         34 allocs/op
+BenchmarkQueryBuilder-8             2000            681146 ns/op            2912 B/op         87 allocs/op
+```
+
+10000 records:
+
+```
+BenchmarkNativeSQL-8                2000            747242 ns/op            1073 B/op         34 allocs/op
+BenchmarkQueryBuilder-8             2000            751494 ns/op            2914 B/op         87 allocs/op
+```
 
 ## Author
 
