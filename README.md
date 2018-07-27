@@ -1,10 +1,9 @@
 # Simple Query Builder for Golang.
 
+## Features
 - Build SQL easily through the method chains
 - `gqb` retunrs abstact scanned result. Especially it's useful for _JOIN-ed_ query result
 - Query results can marshal JSON directly
-
-Note that `gqb` is just only for query bulder, so query exection, prepared statement, escaping bind parameters depend on `databae/sql`.
 
 ## Installation
 
@@ -46,106 +45,95 @@ if err != nil {
 defer db.Close()
 ```
 
-### Select query
+### Getting started
 
-#### General SELECT query usage
+The following example maybe generic usage. We expects SQL as:
 
-The following example maybe genetic usage. We expects 
+```
+SELECT name FROM companies WHERE id = 3;
+```
+
+`gqb` makes above SQL and retrieve result by following code:
 
 ```go
 results, err := gqb.New(db).
   Select("name").
-  Where("id", 3, gqb.Lt).
-  OrderBy("id", gqb.Desc).
+  Where("id", 1, gqb.Equal).
   Get("companies")
 
 if err != nil {
   log.Fatal(err)
 }
 // retrieve result
-for r := range results {
-  fmt.Println(r.MustString("name")) //=> Apple on first, Goolge on second
+for _, r := range results {
+  fmt.Println(r.MustString("name")) //=> Google
 }
 
 // Also can marshal JSON directly
 buf, _ := json.Marshal(results)
-fmt.Printf(string(buf)) //=> [{"name":"Apple"},{"name":"Google"}]
+fmt.Println(string(buf)) //=> [{"name":"Google"}]
 
 // Map to your struct
 type Company struct {
   Name string `db:"name"`  // gqb maps value corresponds to "db" tag field
 }
 companies := []Company{}
-if err := result.Map(&companies); err != nil {
+if err := results.Map(&companies); err != nil {
   log.Fatal(err)
 }
-fmt.Println(companies[0].Name) //=> Apple
+fmt.Println(companies[0].Name) //=> Google
 ```
 
 If you want to get a single record, you can call `GetOne("companies")` instead.
+To leaan more example usage, see examples.
 
-#### Use JOIN case
+## Query Execution
 
-```go
-result, err := gqb.New(db).
-  Select("name", "url").
-  Join("company_attributes", "company_id", "id", gqb.Equal).
-  Where("id", 3, gqb.Equal)
-  GetOne("companies")
+Note that `gqb` is just only for query bulder, so query exection, prepared statement, escaping bind parameters depend on `databae/sql`.
 
-if err != nil {
-  log.Fatal(err)
-}
-// retrieve result
-fmt.Println(result.MustString("url")) //=> https://microsoft.com
+`gqb.New(db)` of first argument accepts `gqb.Executor` interface which has a couple of methods:
 
-// Also can marshal JSON directly
-buf, _ := json.Marshal(result)
-fmt.Printf(string(buf)) //=> {"name":"Microsoft","url":"https://microsoft.com"}
+- `QueryContext(context.Context, query string, binds ...interface{})`
+- `ExecContext(context.Context, query string, binds ...interface{})`
 
-// Map to your struct
-type Company struct {
-  Name string `db:"name"`
-  Url string `db:"url"`
-}
-ms := Company{}
-if err := result.Map(&ms); err != nil {
-  log.Fatal(err)
-}
-fmt.Println(ms.Name) //=> Microsoft
-```
+It means you can use as same syntax in transaction. `gqb.new(*sql.Tx)` also valid.
 
-#### Insert / Update
+## Scan value
 
-for `INSERT` or `UPDATE`, `gqb` supplied `gqb.Data` which is shorthand alias for `map[string]interface{}`:
+The `gqb.Result` struct can access through the `XXX(column)` or `MustXXX(column)`.
+For example, to retrieve `id int(11)` column, you should call `result.MustInt64("id")`.
 
-```
-data := gqb.Data{
-  "name": "Slakc", // will be update to correct name :-)
-}
-// the result is sql.Result
-result, err := gqb.New(db).Insert("companies", data)
+Occasionally there is a case that result value `null`, then you can call `v, err := result.Int64("id")`.
+The `err` is returned if column value doesnt' exist or `null`.
 
-if err != nil {
-  log.Fatal(err)
-}
+Also, you can confirm field value is `null` via `result.Nil("id")`. It returns `true` is value is `null`.
 
-// Oops, update company name to correct one!
-id, err := result.LastInsertId()
-if err != nil {
-  log.Println("failed to retrieve last inserted ID")
-  return
-}
+And, if you want to use query result as your specific struct, you can call `result.Map(&strcut)`.
+it will map values to field which corresponds to tag value of `db:"field"`.
 
-data = gqb.Data{
-  "name: "Slack",
-}
-result, err := gqb.New(db).
-  Where("id", id, gqb.Eaual).
-  Update("companies", data)
+`gqb` supports following struct field types:
 
-if err != nil {
-  log.Fatal(err)
-}
-// Copany name will be updated to "Slack"!
-```
+- string / \*string
+- int / \*int
+- int8 / \*int8
+- int16 / \*int16
+- int32 / \*int32
+- int64 / \*int64
+- uint / \*uint
+- uint8 / \*uint8
+- uint16 / \*uint16
+- uint32 / \*uint32
+- uint64 / \*uint64
+- float32 / \*float32
+- float64 / \*float64
+
+`[]byte`, corresponds to `blob` type column not supported.yet.
+
+## Author
+
+Yoshiaki Sugimoto
+
+## License
+
+MIT
+

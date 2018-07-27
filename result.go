@@ -53,6 +53,8 @@ func (r *Result) MustString(f string) string {
 func (r *Result) String(f string) (string, error) {
 	if v, ok := r.values[f]; !ok {
 		return "", fmt.Errorf("field %s doesn't exist in result", f)
+	} else if v == nil {
+		return "", fmt.Errorf("field %s is nil", f)
 	} else if s, ok := v.(string); !ok {
 		return "", fmt.Errorf("field %s couldn't cast to string", f)
 	} else {
@@ -69,6 +71,8 @@ func (r *Result) MustInt(f string) int {
 func (r *Result) Int(f string) (int, error) {
 	if v, ok := r.values[f]; !ok {
 		return 0, fmt.Errorf("field %s doesn't exist in result", f)
+	} else if v == nil {
+		return 0, fmt.Errorf("field %s is nil", f)
 	} else if i, ok := v.(int); !ok {
 		return 0, fmt.Errorf("field %s couldn't cast to int", f)
 	} else {
@@ -85,6 +89,8 @@ func (r *Result) MustInt64(f string) int64 {
 func (r *Result) Int64(f string) (int64, error) {
 	if v, ok := r.values[f]; !ok {
 		return 0, fmt.Errorf("field %s doesn't exist in result", f)
+	} else if v == nil {
+		return 0, fmt.Errorf("field %s is nil", f)
 	} else if i, ok := v.(int64); ok {
 		return i, nil
 	} else if i, ok := v.(int); !ok {
@@ -103,6 +109,8 @@ func (r *Result) MustFloat64(f string) float64 {
 func (r *Result) Float64(f string) (float64, error) {
 	if v, ok := r.values[f]; !ok {
 		return 0, fmt.Errorf("field %s doesn't exist in result", f)
+	} else if v == nil {
+		return 0, fmt.Errorf("field %s is nil", f)
 	} else if i, ok := v.(float64); !ok {
 		return 0, fmt.Errorf("field %s couldn't cast to float64", f)
 	} else {
@@ -118,7 +126,7 @@ func (r *Result) MustBytes(f string) []byte {
 // Get field value as []byte with caring type conversion
 func (r *Result) Bytes(f string) ([]byte, error) {
 	if s, err := r.String(f); err != nil {
-		return nil, fmt.Errorf("field %s couldn't cast to float64", f)
+		return nil, fmt.Errorf("field %s couldn't cast to []byte", f)
 	} else {
 		return []byte(s), nil
 	}
