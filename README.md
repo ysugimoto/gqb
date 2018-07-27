@@ -129,6 +129,31 @@ it will map values to field which corresponds to tag value of `db:"field"`.
 
 `[]byte`, corresponds to `blob` type column not supported.yet.
 
+## Benchmarks
+
+Native SQL vs `gqb` Query Builder.
+
+100 records:
+
+```
+BenchmarkNativeSQL-8                2000            696598 ns/op            1072 B/op         34 allocs/op
+BenchmarkQueryBuilder-8             2000            653312 ns/op            2910 B/op         87 allocs/op
+```
+
+1000 records:
+
+```
+BenchmarkNativeSQL-8                2000            738930 ns/op            1076 B/op         34 allocs/op
+BenchmarkQueryBuilder-8             2000            681146 ns/op            2912 B/op         87 allocs/op
+```
+
+10000 records:
+
+```
+BenchmarkNativeSQL-8                2000            747242 ns/op            1073 B/op         34 allocs/op
+BenchmarkQueryBuilder-8             2000            751494 ns/op            2914 B/op         87 allocs/op
+```
+
 ## Author
 
 Yoshiaki Sugimoto
