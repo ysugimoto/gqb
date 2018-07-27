@@ -5,8 +5,8 @@ jobs:
     docker:
       - image: circleci/golang:1.10
       - image: mysql:5.7
-          environment:
-            MYSQL_ROOT_PASSWORD: root
+        environment:
+          MYSQL_ROOT_PASSWORD: root
     environment:
       GQB_MYSQL_PORT: 3306
     steps:
