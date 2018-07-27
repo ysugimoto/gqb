@@ -17,14 +17,13 @@ func main() {
 	}
 	defer db.Close()
 
-	// Well, we have to remove it...
 	_, err = gqb.New(db).
-		Where("id", 4, gqb.Equal).
+		Where("id", 3, gqb.Equal).
 		Delete("companies")
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Id: 4 deleted.")
+	fmt.Printf("Id: 3 deleted.")
 }

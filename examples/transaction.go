@@ -23,7 +23,7 @@ func main() {
 	}
 
 	data := gqb.Data{"name": "Slack"}
-	// the result is sql.Result
+	// gqb.New() also accepts *sql.Tx
 	result, err := gqb.New(tx).Insert("companies", data)
 
 	if err != nil {
@@ -31,7 +31,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Oops, update company name to correct one!
 	id, err := result.LastInsertId()
 	if err != nil {
 		tx.Rollback()

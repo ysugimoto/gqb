@@ -25,7 +25,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Oops, update company name to correct one!
 	id, err := result.LastInsertId()
 	if err != nil {
 		log.Println("failed to retrieve last inserted ID")
