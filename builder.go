@@ -62,7 +62,9 @@ func buildSelectFields(selects []interface{}) string {
 	}
 	fields := ""
 	for _, f := range selects {
-		fields += toString(f) + ", "
+		if v := toString(f); v != "" {
+			fields += v + ", "
+		}
 	}
 	return strings.TrimRight(fields, ", ")
 }
