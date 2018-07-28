@@ -3,6 +3,7 @@ package gqb
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 const (
@@ -12,6 +13,17 @@ const (
 	// Date format, this is used for DATE column
 	dateFormat = "2006-01-02"
 )
+
+// bind() adds some value to bind slice values.
+// if value is time.Time struct, stringify with datetime
+func bind(b []interface{}, v interface{}) []interface{} {
+	if t, ok := v.(time.Time); ok {
+		b = append(b, t.Format(timeFormat))
+	} else {
+		b = append(b, v)
+	}
+	return b
+}
 
 // Create SELECT column name string.
 // If field is Raw type, field won't escape in order to unexpected quote string is added.
@@ -24,8 +36,12 @@ func buildSelectFields(selects []interface{}) string {
 	}
 	fields := ""
 	for _, f := range selects {
-		if v := toString(f); v != "" {
-			fields += v + ", "
+		if v, ok := f.(Raw); ok {
+			fields += v.String() + ", "
+		} else if v, ok := f.(alias); ok {
+			fields += v.String() + ", "
+		} else if v, ok := f.(string); ok {
+			fields += quote(v) + ", "
 		}
 	}
 	return strings.TrimRight(fields, ", ")
@@ -38,7 +54,7 @@ func buildSelectFields(selects []interface{}) string {
 // Raw type          -> Raw("COUNT(id)") -> COUNT(id)
 // column            -> name             -> `name`
 // column with table -> table.name       -> `table`.`name`
-func buildWhere(wheres []conditionBuilder, binds []interface{}) (string, []interface{}) {
+func buildWhere(wheres []ConditionBuilder, binds []interface{}) (string, []interface{}) {
 	if len(wheres) == 0 {
 		return "", binds
 	}
@@ -48,7 +64,7 @@ func buildWhere(wheres []conditionBuilder, binds []interface{}) (string, []inter
 	c := ""
 
 	for _, w := range wheres {
-		c = w.getCombine()
+		c = w.Combine()
 		if c != "" {
 			c = " " + c + " "
 		}
@@ -56,9 +72,9 @@ func buildWhere(wheres []conditionBuilder, binds []interface{}) (string, []inter
 			c = ""
 			first = false
 		}
-		var phrase string
-		phrase, binds = w.buildCondition(binds)
-		where += fmt.Sprintf("%s(%s)", c, phrase)
+		var clause string
+		clause, binds = w.Build(binds)
+		where += fmt.Sprintf("%s(%s)", c, clause)
 	}
 	return " WHERE " + where, binds
 }
@@ -70,7 +86,7 @@ func buildOrderBy(orders []Order) string {
 	}
 	order := []string{}
 	for _, o := range orders {
-		order = append(order, formatField(o.field)+" "+string(o.sort))
+		order = append(order, quote(o.field)+" "+string(o.sort))
 	}
 	return " ORDER BY " + strings.Join(order, ", ")
 }

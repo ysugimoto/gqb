@@ -3,7 +3,25 @@ package gqb
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/ysugimoto/gqb/compat"
 )
+
+var driverCompat compat.Compat = compat.MysqlCompat{}
+
+func SetDriver(driverType string) {
+	switch driverType {
+	case "mysql":
+		driverCompat = compat.MysqlCompat{}
+	default:
+		driverCompat = compat.PostgresCompat{}
+	}
+}
+
+// shorthand syntax for compat.Compat.Quote
+func quote(str string) string {
+	return driverCompat.Quote(str)
+}
 
 // parseTag() parses Strcut tag to name-value map
 func parseTag(tag string) (map[string]string, error) {
