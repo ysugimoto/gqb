@@ -18,6 +18,7 @@ type QueryBuilder struct {
 	orders  []Order
 	selects []interface{}
 	joins   []Join
+	groupBy []string
 }
 
 // Create new Query QueryBuilder
@@ -33,6 +34,7 @@ func (q *QueryBuilder) Reset() {
 	q.selects = []interface{}{}
 	q.joins = []Join{}
 	q.orders = []Order{}
+	q.groupBy = []string{}
 	q.limit = 0
 	q.offset = 0
 }
@@ -148,6 +150,36 @@ func (q *QueryBuilder) WhereIn(field string, values ...interface{}) *QueryBuilde
 	})
 }
 
+// Add IN condition with OR combination
+func (q *QueryBuilder) OrWhereIn(field string, values ...interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: In,
+		field:      field,
+		value:      values,
+		combine:    Or,
+	})
+}
+
+// Add NOT IN condition with AND combination
+func (q *QueryBuilder) WhereNotIn(field string, values ...interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: NotIn,
+		field:      field,
+		value:      values,
+		combine:    And,
+	})
+}
+
+// Add NOT IN condition with OR combination
+func (q *QueryBuilder) OrWhereNotIn(field string, values ...interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: NotIn,
+		field:      field,
+		value:      values,
+		combine:    Or,
+	})
+}
+
 // Add LIKE condition with AND combination
 func (q *QueryBuilder) Like(field string, value interface{}) *QueryBuilder {
 	return q.AddWhere(condition{
@@ -168,7 +200,33 @@ func (q *QueryBuilder) OrLike(field string, value interface{}) *QueryBuilder {
 	})
 }
 
-// Add ORDER BY condition
+// Add NOT LIKE condition with AND combination
+func (q *QueryBuilder) NotLike(field string, value interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: NotLike,
+		field:      field,
+		value:      value,
+		combine:    And,
+	})
+}
+
+// Add NOT LIKE condition with OR combination
+func (q *QueryBuilder) OrNotLike(field string, value interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: NotLike,
+		field:      field,
+		value:      value,
+		combine:    Or,
+	})
+}
+
+// Add GROUP BY clause
+func (q *QueryBuilder) GroupBy(fields ...string) *QueryBuilder {
+	q.groupBy = append(q.groupBy, fields...)
+	return q
+}
+
+// Add ORDER BY cluase
 func (q *QueryBuilder) OrderBy(field string, sort SortMode) *QueryBuilder {
 	q.orders = append(q.orders, Order{
 		field: field,
@@ -177,6 +235,7 @@ func (q *QueryBuilder) OrderBy(field string, sort SortMode) *QueryBuilder {
 	return q
 }
 
+// Format FROM table
 func (q *QueryBuilder) formatTable(table interface{}) (string, error) {
 	if v, ok := table.(alias); ok {
 		return v.String(), nil
@@ -219,11 +278,12 @@ func (q *QueryBuilder) GetContext(ctx context.Context, table interface{}) (Resul
 	}
 	where, binds := buildWhere(q.wheres, []interface{}{})
 	query := strings.TrimSpace(fmt.Sprintf(
-		"SELECT %s FROM %s%s%s%s%s%s",
+		"SELECT %s FROM %s%s%s%s%s%s%s",
 		buildSelectFields(q.selects),
 		mainTable,
 		buildJoin(q.joins, mainTable),
 		where,
+		buildGroupBy(q.groupBy),
 		buildOrderBy(q.orders),
 		buildLimit(q.limit),
 		buildOffset(q.offset),

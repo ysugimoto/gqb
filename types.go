@@ -63,8 +63,14 @@ const (
 	// In compares within values
 	In Comparison = "IN"
 
+	// NotIn compares whithout values
+	NotIn Comparison = "NOT IN"
+
 	// Like compares value matching phrase
 	Like Comparison = "LIKE"
+
+	// Like compares value not matching phrase
+	NotLike Comparison = "NOT LIKE"
 
 	// Desc indicates decendant
 	Desc SortMode = "DESC"

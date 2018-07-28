@@ -47,7 +47,7 @@ func buildSelectFields(selects []interface{}) string {
 	return strings.TrimRight(fields, ", ")
 }
 
-// Create WHERE phrase string.
+// Create WHERE clause string.
 // gqb uses prepared statement with "?", and add bind parameters slice
 // If field is Raw type, field won't escape in order to unexpected quote string is added.
 //
@@ -79,19 +79,25 @@ func buildWhere(wheres []ConditionBuilder, binds []interface{}) (string, []inter
 	return " WHERE " + where, binds
 }
 
-// Create ORDER BY phrase string.
+// Create ORDER BY clause string.
 func buildOrderBy(orders []Order) string {
 	if len(orders) == 0 {
 		return ""
 	}
 	order := []string{}
 	for _, o := range orders {
-		order = append(order, quote(o.field)+" "+string(o.sort))
+		var s string
+		if o.sort == Rand {
+			s = driverCompat.RandFunc()
+		} else {
+			s = string(o.sort)
+		}
+		order = append(order, quote(o.field)+" "+s)
 	}
 	return " ORDER BY " + strings.Join(order, ", ")
 }
 
-// Create JOIN phrase string.
+// Create JOIN clause string.
 func buildJoin(joins []Join, baseTable string) string {
 	if len(joins) == 0 {
 		return ""
@@ -112,7 +118,7 @@ func buildJoin(joins []Join, baseTable string) string {
 	return join
 }
 
-// Create LIMIT phrase string.
+// Create LIMIT clause string.
 func buildLimit(limit int64) string {
 	if limit == 0 {
 		return ""
@@ -120,10 +126,23 @@ func buildLimit(limit int64) string {
 	return fmt.Sprintf(" LIMIT %d", limit)
 }
 
-// Create OFFSET phrase string.
+// Create OFFSET clause string.
 func buildOffset(offset int64) string {
 	if offset == 0 {
 		return ""
 	}
 	return fmt.Sprintf(" OFFSET %d", offset)
+}
+
+// Create GROUP BY clause string.
+func buildGroupBy(groupBy []string) string {
+	if len(groupBy) == 0 {
+		return ""
+	}
+
+	var gb string
+	for _, g := range groupBy {
+		gb += quote(g) + ", "
+	}
+	return " GROUP BY " + strings.TrimRight(gb, ", ")
 }
