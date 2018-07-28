@@ -78,7 +78,6 @@ type Executor interface {
 // Builder is struct for stack some conditions, orders, ... with method chain.
 type Builder struct {
 	db      Executor
-	ctx     context.Context
 	limit   int64
 	offset  int64
 	wheres  []conditionBuilder
@@ -92,12 +91,6 @@ func New(db Executor) *Builder {
 	return &Builder{
 		db: db,
 	}
-}
-
-// Set current context to builder
-func (q *Builder) Context(ctx context.Context) *Builder {
-	q.ctx = ctx
-	return q
 }
 
 // Reset() resets stacks
@@ -212,13 +205,18 @@ func (q *Builder) OrderBy(field string, sort SortMode) *Builder {
 
 // Execute query and get first result
 func (q *Builder) GetOne(table interface{}) (*Result, error) {
+	return q.GetOneContext(context.Background(), table)
+}
+
+// Execute query and get first result with context
+func (q *Builder) GetOneContext(ctx context.Context, table interface{}) (*Result, error) {
 	defLimit := q.limit
 	defer func() {
 		q.limit = defLimit
 	}()
 	q.limit = 1
 
-	r, err := q.Get(table)
+	r, err := q.GetContext(ctx, table)
 	if err != nil {
 		return nil, err
 	} else if len(r) == 0 {
@@ -227,21 +225,18 @@ func (q *Builder) GetOne(table interface{}) (*Result, error) {
 	return r[0], nil
 }
 
-// Get context.Context even if not defined
-func (q *Builder) context() context.Context {
-	if q.ctx != nil {
-		return q.ctx
-	}
-	return context.Background()
-}
-
 // Execute query and get results
 func (q *Builder) Get(table interface{}) (Results, error) {
+	return q.GetContext(context.Background(), table)
+}
+
+// Execute query and get results with context
+func (q *Builder) GetContext(ctx context.Context, table interface{}) (Results, error) {
 	query, binds, err := q.Build(Select, table, nil)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := q.db.QueryContext(q.context(), query, binds...)
+	rows, err := q.db.QueryContext(ctx, query, binds...)
 	if err != nil {
 		return nil, err
 	}
@@ -300,29 +295,44 @@ func (q *Builder) scan(rows *sql.Rows) (Results, error) {
 
 // Execute UPDATE query
 func (q *Builder) Update(table interface{}, data Data) (sql.Result, error) {
+	return q.UpdateContext(context.Background(), table, data)
+}
+
+// Execute UPDATE query with context
+func (q *Builder) UpdateContext(ctx context.Context, table interface{}, data Data) (sql.Result, error) {
 	query, binds, err := q.Build(Update, table, data)
 	if err != nil {
 		return nil, err
 	}
-	return q.db.ExecContext(q.context(), query, binds...)
+	return q.db.ExecContext(ctx, query, binds...)
 }
 
 // Execute INSERT query
 func (q *Builder) Insert(table interface{}, data Data) (sql.Result, error) {
+	return q.InsertContext(context.Background(), table, data)
+}
+
+// Execute INSERT query with context
+func (q *Builder) InsertContext(ctx context.Context, table interface{}, data Data) (sql.Result, error) {
 	query, binds, err := q.Build(Insert, table, data)
 	if err != nil {
 		return nil, err
 	}
-	return q.db.ExecContext(q.context(), query, binds...)
+	return q.db.ExecContext(ctx, query, binds...)
 }
 
 // Execute DELETE query
 func (q *Builder) Delete(table interface{}) (sql.Result, error) {
+	return q.DeleteContext(context.Background(), table)
+}
+
+// Execute DELETE query with context
+func (q *Builder) DeleteContext(ctx context.Context, table interface{}) (sql.Result, error) {
 	query, binds, err := q.Build(Delete, table, nil)
 	if err != nil {
 		return nil, err
 	}
-	return q.db.ExecContext(q.context(), query, binds...)
+	return q.db.ExecContext(ctx, query, binds...)
 }
 
 // Build SQL string and bind paramteres corresponds to query mode
