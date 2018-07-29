@@ -4,134 +4,87 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sort"
 	"strings"
 
 	"database/sql"
 )
 
-// Build query mode constants definition
-const (
-	Select queryMode = iota
-	Update
-	Insert
-	Delete
-)
-
-type (
-	// Raw type indicates "raw query phrase", it means gqb won't quote any string, columns.
-	// You should tableke carefully when use this type, but it's useful for use function like "COUNT(*)".
-	Raw string
-
-	// queryMode type is build query type switching.
-	queryMode int
-
-	// Data type is used for INSERT/UPDATE data definition.
-	// This is suger syntax for map[string]interface{}, but always fields are sorted by key.
-	Data map[string]interface{}
-
-	// alias type is used for SELECT, create alias column name.
-	// This will be useful for using JOIN query.
-	alias struct {
-		from string
-		to   string
-	}
-)
-
-// Alias() returns formatted alias struct
-func Alias(from, to string) alias {
-	return alias{
-		from: from,
-		to:   to,
-	}
-}
-
-// fmt.Stringer intetface satisfies
-func (a alias) String() string {
-	return formatField(a.from) + " AS " + formatField(a.to)
-}
-
-// fmt.Stringer intetface satisfies
-func (r Raw) String() string {
-	return string(r)
-}
-
-// Return sorted field name strings
-func (d Data) Keys() []string {
-	keys := make([]string, len(d))
-	i := 0
-	for k := range d {
-		keys[i] = k
-		i++
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-// SQL executor interface, this is enough to implement QueryContext() and ExecContext().
-// It's useful for running query in transation or not, because Executor accepts both of *sql.DB and *sql.Tx.
-type Executor interface {
-	QueryContext(context.Context, string, ...interface{}) (*sql.Rows, error)
-	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
-}
-
-// Builder is struct for stack some conditions, orders, ... with method chain.
-type Builder struct {
+// QueryBuilder is struct for stack some conditions, orders, ... with method chain.
+type QueryBuilder struct {
 	db      Executor
-	ctx     context.Context
 	limit   int64
 	offset  int64
-	wheres  []conditionBuilder
+	wheres  []ConditionBuilder
 	orders  []Order
 	selects []interface{}
 	joins   []Join
+	groupBy []string
 }
 
-// Create new Query Builder
-func New(db Executor) *Builder {
-	return &Builder{
+// Create new Query QueryBuilder
+func New(db Executor) *QueryBuilder {
+	return &QueryBuilder{
 		db: db,
 	}
 }
 
-// Set current context to builder
-func (q *Builder) Context(ctx context.Context) *Builder {
-	q.ctx = ctx
-	return q
-}
-
 // Reset() resets stacks
-func (q *Builder) Reset() {
-	q.wheres = []conditionBuilder{}
+func (q *QueryBuilder) Reset() {
+	q.wheres = []ConditionBuilder{}
 	q.selects = []interface{}{}
 	q.joins = []Join{}
 	q.orders = []Order{}
+	q.groupBy = []string{}
 	q.limit = 0
 	q.offset = 0
 }
 
 // Add SELECT fields
-func (q *Builder) Select(fields ...interface{}) *Builder {
+func (q *QueryBuilder) Select(fields ...interface{}) *QueryBuilder {
 	q.selects = append(q.selects, fields...)
 	return q
 }
 
+// Add SELECT COUNT fields
+func (q *QueryBuilder) SelectCount(field string) *QueryBuilder {
+	q.selects = append(q.selects, Raw("COUNT("+quote(field)+")"))
+	return q
+}
+
+// Add SELECT MAX fields
+func (q *QueryBuilder) SelectMax(field string) *QueryBuilder {
+	q.selects = append(q.selects, Raw("MAX("+quote(field)+")"))
+	return q
+}
+
+// Add SELECT MIN fields
+func (q *QueryBuilder) SelectMin(field string) *QueryBuilder {
+	q.selects = append(q.selects, Raw("MIN("+quote(field)+")"))
+	return q
+}
+
+// Add SELECT AVG fields
+func (q *QueryBuilder) SelectAvg(field string) *QueryBuilder {
+	q.selects = append(q.selects, Raw("AVG("+quote(field)+")"))
+	return q
+}
+
 // Set LIMIT field
-func (q *Builder) Limit(limit int64) *Builder {
+func (q *QueryBuilder) Limit(limit int64) *QueryBuilder {
 	q.limit = limit
 	return q
 }
 
 // Set OFFSET field
-func (q *Builder) Offset(offset int64) *Builder {
+func (q *QueryBuilder) Offset(offset int64) *QueryBuilder {
 	q.offset = offset
 	return q
 }
 
 // Add JOIN table with condition
-func (q *Builder) Join(table, from, to string, c Comparison) *Builder {
+func (q *QueryBuilder) Join(table, from, to string, c Comparison) *QueryBuilder {
 	q.joins = append(q.joins, Join{
-		on: Condition{
+		on: condition{
 			comparison: c,
 			field:      from,
 			value:      to,
@@ -144,8 +97,8 @@ func (q *Builder) Join(table, from, to string, c Comparison) *Builder {
 // Add WHERE condition group with AND.
 // The first argument is generator function which accepts *ConditionGroup as argument.
 // After call the generator function, add WHERE stack with called state
-func (q *Builder) WhereGroup(generator func(g *ConditionGroup)) *Builder {
-	cg := NewConditionGroup(And)
+func (q *QueryBuilder) WhereGroup(generator func(g *WhereGroup)) *QueryBuilder {
+	cg := newWhereGroup(And)
 	generator(cg)
 	q.wheres = append(q.wheres, cg)
 	return q
@@ -154,55 +107,127 @@ func (q *Builder) WhereGroup(generator func(g *ConditionGroup)) *Builder {
 // Add WHERE condition group with OR.
 // The first argument is generator function which accepts *ConditionGroup as argument.
 // After call the generator function, add WHERE stack with called state
-func (q *Builder) OrWhereGroup(generator func(g *ConditionGroup)) *Builder {
-	cg := NewConditionGroup(Or)
+func (q *QueryBuilder) OrWhereGroup(generator func(g *WhereGroup)) *QueryBuilder {
+	cg := newWhereGroup(Or)
 	generator(cg)
 	q.wheres = append(q.wheres, cg)
 	return q
 }
 
 // Add condition
-func (q *Builder) where(field string, value interface{}, comparison Comparison, combine combine) {
-	q.wheres = append(q.wheres, Condition{
-		comparison: comparison,
-		field:      field,
-		value:      value,
-		combine:    combine,
-	})
+func (q *QueryBuilder) AddWhere(c ConditionBuilder) *QueryBuilder {
+	q.wheres = append(q.wheres, c)
+	return q
 }
 
 // Add condition with AND combination
-func (q *Builder) Where(field string, value interface{}, comparison Comparison) *Builder {
-	q.where(field, value, comparison, And)
-	return q
+func (q *QueryBuilder) Where(field string, value interface{}, comparison Comparison) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: comparison,
+		field:      field,
+		value:      value,
+		combine:    And,
+	})
 }
 
 // Add condition with OR combination
-func (q *Builder) OrWhere(field string, value interface{}, comparison Comparison) *Builder {
-	q.where(field, value, comparison, Or)
-	return q
+func (q *QueryBuilder) OrWhere(field string, value interface{}, comparison Comparison) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: comparison,
+		field:      field,
+		value:      value,
+		combine:    Or,
+	})
 }
 
 // Add IN condition with AND combination
-func (q *Builder) WhereIn(field string, values ...interface{}) *Builder {
-	q.where(field, values, In, And)
-	return q
+func (q *QueryBuilder) WhereIn(field string, values ...interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: In,
+		field:      field,
+		value:      values,
+		combine:    And,
+	})
+}
+
+// Add IN condition with OR combination
+func (q *QueryBuilder) OrWhereIn(field string, values ...interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: In,
+		field:      field,
+		value:      values,
+		combine:    Or,
+	})
+}
+
+// Add NOT IN condition with AND combination
+func (q *QueryBuilder) WhereNotIn(field string, values ...interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: NotIn,
+		field:      field,
+		value:      values,
+		combine:    And,
+	})
+}
+
+// Add NOT IN condition with OR combination
+func (q *QueryBuilder) OrWhereNotIn(field string, values ...interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: NotIn,
+		field:      field,
+		value:      values,
+		combine:    Or,
+	})
 }
 
 // Add LIKE condition with AND combination
-func (q *Builder) Like(field string, value interface{}) *Builder {
-	q.where(field, value, Like, And)
-	return q
+func (q *QueryBuilder) Like(field string, value interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: Like,
+		field:      field,
+		value:      value,
+		combine:    And,
+	})
 }
 
 // Add LIKE condition with OR combination
-func (q *Builder) OrLike(field string, value interface{}) *Builder {
-	q.where(field, value, Like, Or)
+func (q *QueryBuilder) OrLike(field string, value interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: Like,
+		field:      field,
+		value:      value,
+		combine:    Or,
+	})
+}
+
+// Add NOT LIKE condition with AND combination
+func (q *QueryBuilder) NotLike(field string, value interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: NotLike,
+		field:      field,
+		value:      value,
+		combine:    And,
+	})
+}
+
+// Add NOT LIKE condition with OR combination
+func (q *QueryBuilder) OrNotLike(field string, value interface{}) *QueryBuilder {
+	return q.AddWhere(condition{
+		comparison: NotLike,
+		field:      field,
+		value:      value,
+		combine:    Or,
+	})
+}
+
+// Add GROUP BY clause
+func (q *QueryBuilder) GroupBy(fields ...string) *QueryBuilder {
+	q.groupBy = append(q.groupBy, fields...)
 	return q
 }
 
-// Add ORDER BY condition
-func (q *Builder) OrderBy(field string, sort SortMode) *Builder {
+// Add ORDER BY cluase
+func (q *QueryBuilder) OrderBy(field string, sort SortMode) *QueryBuilder {
 	q.orders = append(q.orders, Order{
 		field: field,
 		sort:  sort,
@@ -210,15 +235,28 @@ func (q *Builder) OrderBy(field string, sort SortMode) *Builder {
 	return q
 }
 
-// Execute query and get first result
-func (q *Builder) GetOne(table interface{}) (*Result, error) {
-	defLimit := q.limit
-	defer func() {
-		q.limit = defLimit
-	}()
-	q.limit = 1
+// Format FROM table
+func (q *QueryBuilder) formatTable(table interface{}) (string, error) {
+	if v, ok := table.(alias); ok {
+		return v.String(), nil
+	} else if v, ok := table.(string); ok {
+		if v == "" {
+			return "", fmt.Errorf("Table name must not be empty")
+		}
+		return quote(v), nil
+	}
+	return "", fmt.Errorf("Invalid table specified")
+}
 
-	r, err := q.Get(table)
+// Execute query and get first result
+func (q *QueryBuilder) GetOne(table interface{}) (*Result, error) {
+	return q.GetOneContext(context.Background(), table)
+}
+
+// Execute query and get first result with context
+func (q *QueryBuilder) GetOneContext(ctx context.Context, table interface{}) (*Result, error) {
+	q.limit = 1
+	r, err := q.GetContext(ctx, table)
 	if err != nil {
 		return nil, err
 	} else if len(r) == 0 {
@@ -227,21 +265,33 @@ func (q *Builder) GetOne(table interface{}) (*Result, error) {
 	return r[0], nil
 }
 
-// Get context.Context even if not defined
-func (q *Builder) context() context.Context {
-	if q.ctx != nil {
-		return q.ctx
-	}
-	return context.Background()
+// Execute query and get results
+func (q *QueryBuilder) Get(table interface{}) (Results, error) {
+	return q.GetContext(context.Background(), table)
 }
 
-// Execute query and get results
-func (q *Builder) Get(table interface{}) (Results, error) {
-	query, binds, err := q.Build(Select, table, nil)
+// Execute query and get results with context
+func (q *QueryBuilder) GetContext(ctx context.Context, table interface{}) (Results, error) {
+	mainTable, err := q.formatTable(table)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := q.db.QueryContext(q.context(), query, binds...)
+	where, binds := buildWhere(q.wheres, []interface{}{})
+	query := strings.TrimSpace(fmt.Sprintf(
+		"SELECT %s FROM %s%s%s%s%s%s%s",
+		buildSelectFields(q.selects),
+		mainTable,
+		buildJoin(q.joins, mainTable),
+		where,
+		buildGroupBy(q.groupBy),
+		buildOrderBy(q.orders),
+		buildLimit(q.limit),
+		buildOffset(q.offset),
+	))
+
+	fmt.Println(query, binds)
+	defer q.Reset()
+	rows, err := q.db.QueryContext(ctx, query, binds...)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +302,7 @@ func (q *Builder) Get(table interface{}) (Results, error) {
 }
 
 // Scan rows to map to result
-func (q *Builder) scan(rows *sql.Rows) (Results, error) {
+func (q *QueryBuilder) scan(rows *sql.Rows) (Results, error) {
 	columns, err := rows.ColumnTypes()
 	if err != nil {
 		return nil, err
@@ -280,18 +330,16 @@ func (q *Builder) scan(rows *sql.Rows) (Results, error) {
 			// We treat charater fields like VARCHAR, TEXT, ...
 			// Because Go's sql driver scan as []byte for string type column on interface{},
 			// so it's hard to convert to string on marshal JSON.
-			t := n.ScanType()
-			// Ensure []byte type
-			if t.Kind() == reflect.Slice && t.Name() == "RawBytes" {
+			v := *value
+			if b, ok := v.([]byte); ok {
 				// Also we need to ensure value is zero value to avoid panic
 				if reflect.ValueOf(value).IsValid() {
-					v := *value
-					values[name] = string(v.([]byte))
+					values[name] = string(b)
 					continue
 				}
 			}
 			// Other types like int, float, decimal will treat as interface directory
-			values[name] = *value
+			values[name] = v
 		}
 		results = append(results, NewResult(values))
 	}
@@ -299,107 +347,90 @@ func (q *Builder) scan(rows *sql.Rows) (Results, error) {
 }
 
 // Execute UPDATE query
-func (q *Builder) Update(table interface{}, data Data) (sql.Result, error) {
-	query, binds, err := q.Build(Update, table, data)
+func (q *QueryBuilder) Update(table interface{}, data Data) (sql.Result, error) {
+	return q.UpdateContext(context.Background(), table, data)
+}
+
+// Execute UPDATE query with context
+func (q *QueryBuilder) UpdateContext(ctx context.Context, table interface{}, data Data) (sql.Result, error) {
+	if data == nil {
+		return nil, fmt.Errorf("update data must be non-nil")
+	}
+	mainTable, err := q.formatTable(table)
 	if err != nil {
 		return nil, err
 	}
-	return q.db.ExecContext(q.context(), query, binds...)
+	var where, updates string
+	binds := []interface{}{}
+
+	for _, k := range data.Keys() {
+		updates += quote(k) + " = " + driverCompat.PlaceHolder(len(binds)+1) + ", "
+		binds = bind(binds, data[k])
+	}
+	where, binds = buildWhere(q.wheres, binds)
+
+	query := strings.TrimSpace(fmt.Sprintf(
+		"UPDATE %s SET %s%s%s",
+		mainTable,
+		strings.TrimRight(updates, ", "),
+		where,
+		buildLimit(q.limit),
+	))
+
+	defer q.Reset()
+	return q.db.ExecContext(ctx, query, binds...)
 }
 
 // Execute INSERT query
-func (q *Builder) Insert(table interface{}, data Data) (sql.Result, error) {
-	query, binds, err := q.Build(Insert, table, data)
+func (q *QueryBuilder) Insert(table interface{}, data Data) (sql.Result, error) {
+	return q.InsertContext(context.Background(), table, data)
+}
+
+// Execute INSERT query with context
+func (q *QueryBuilder) InsertContext(ctx context.Context, table interface{}, data Data) (sql.Result, error) {
+	if data == nil {
+		return nil, fmt.Errorf("insert data must be non-nil")
+	}
+	mainTable, err := q.formatTable(table)
 	if err != nil {
 		return nil, err
 	}
-	return q.db.ExecContext(q.context(), query, binds...)
+
+	var fields, values string
+	binds := []interface{}{}
+
+	for _, k := range data.Keys() {
+		fields += quote(k) + ", "
+		values += driverCompat.PlaceHolder(len(binds)+1) + ", "
+		binds = bind(binds, data[k])
+	}
+	query := fmt.Sprintf(
+		"INSERT INTO %s (%s) VALUES (%s)",
+		mainTable,
+		strings.TrimRight(fields, ", "),
+		strings.TrimRight(values, ", "),
+	)
+	defer q.Reset()
+	return q.db.ExecContext(ctx, query, binds...)
 }
 
 // Execute DELETE query
-func (q *Builder) Delete(table interface{}) (sql.Result, error) {
-	query, binds, err := q.Build(Delete, table, nil)
+func (q *QueryBuilder) Delete(table interface{}) (sql.Result, error) {
+	return q.DeleteContext(context.Background(), table)
+}
+
+// Execute DELETE query with context
+func (q *QueryBuilder) DeleteContext(ctx context.Context, table interface{}) (sql.Result, error) {
+	mainTable, err := q.formatTable(table)
 	if err != nil {
 		return nil, err
 	}
-	return q.db.ExecContext(q.context(), query, binds...)
-}
-
-// Build SQL string and bind paramteres corresponds to query mode
-func (q *Builder) Build(mode queryMode, table interface{}, data Data) (string, []interface{}, error) {
-	mainTable := toString(table)
-	if mainTable == "" {
-		return "", nil, fmt.Errorf("table not specified or empty")
-	}
-	switch mode {
-	// Build SELECT query
-	case Select:
-		where, binds := buildWhere(q.wheres, []interface{}{})
-		return strings.TrimSpace(fmt.Sprintf(
-			"SELECT %s FROM %s%s%s%s%s%s",
-			buildSelectFields(q.selects),
-			mainTable,
-			buildJoin(q.joins, mainTable),
-			where,
-			buildOrderBy(q.orders),
-			buildLimit(q.limit),
-			buildOffset(q.offset),
-		)), binds, nil
-
-	// Build UPDATE query
-	case Update:
-		if data == nil {
-			return "", nil, fmt.Errorf("update data must be non-nil")
-		}
-		where := ""
-		binds := []interface{}{}
-		updates := ""
-		for _, k := range data.Keys() {
-			updates += formatField(k) + " = ?, "
-			binds = bind(binds, data[k])
-		}
-		updates = strings.TrimRight(updates, ", ")
-		where, binds = buildWhere(q.wheres, binds)
-
-		return strings.TrimSpace(fmt.Sprintf(
-			"UPDATE %s SET %s%s%s",
-			mainTable,
-			updates,
-			where,
-			buildLimit(q.limit),
-		)), binds, nil
-
-	// Build INSERT query
-	case Insert:
-		if data == nil {
-			return "", nil, fmt.Errorf("insert data must be non-nil")
-		}
-		binds := []interface{}{}
-		fields := ""
-		values := ""
-		for _, k := range data.Keys() {
-			fields += formatField(k) + ", "
-			values += "?, "
-			binds = bind(binds, data[k])
-		}
-		return fmt.Sprintf(
-			"INSERT INTO %s (%s) VALUES (%s)",
-			mainTable,
-			strings.TrimRight(fields, ", "),
-			strings.TrimRight(values, ", "),
-		), binds, nil
-
-	// Build DELETE query
-	case Delete:
-		where, binds := buildWhere(q.wheres, []interface{}{})
-		return strings.TrimSpace(fmt.Sprintf(
-			"DELETE FROM %s%s",
-			mainTable,
-			where,
-		)), binds, nil
-
-	// Unexpected
-	default:
-		return "", nil, fmt.Errorf("unexpected query mode specified")
-	}
+	where, binds := buildWhere(q.wheres, []interface{}{})
+	query := strings.TrimSpace(fmt.Sprintf(
+		"DELETE FROM %s%s",
+		mainTable,
+		where,
+	))
+	defer q.Reset()
+	return q.db.ExecContext(ctx, query, binds...)
 }

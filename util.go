@@ -5,6 +5,24 @@ import (
 	"reflect"
 )
 
+var driverCompat Compat = MysqlCompat{}
+
+func SetDriver(driverType string) {
+	switch driverType {
+	case "mysql":
+		driverCompat = MysqlCompat{}
+	case "postgres":
+		driverCompat = PostgresCompat{}
+	case "sqlite":
+		driverCompat = SQLiteCompat{}
+	}
+}
+
+// shorthand syntax for compat.Compat.Quote
+func quote(str string) string {
+	return driverCompat.Quote(str)
+}
+
 // parseTag() parses Strcut tag to name-value map
 func parseTag(tag string) (map[string]string, error) {
 	parsed := make(map[string]string)

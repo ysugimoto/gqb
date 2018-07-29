@@ -14,32 +14,6 @@ const (
 	dateFormat = "2006-01-02"
 )
 
-// quote() adds back quote prefix/suffix
-func quote(str string) string {
-	return "`" + strings.Trim(str, "`") + "`"
-}
-
-func toString(v interface{}) string {
-	if s, ok := v.(fmt.Stringer); ok {
-		return s.String()
-	} else if s, ok := v.(string); ok {
-		return formatField(s)
-	}
-	return ""
-}
-
-// formatField() adds back quote by splitting table and column
-func formatField(str string) string {
-	if str == "" {
-		return str
-	}
-	split := strings.Split(str, ".")
-	for i, _ := range split {
-		split[i] = quote(split[i])
-	}
-	return strings.Join(split, ".")
-}
-
 // bind() adds some value to bind slice values.
 // if value is time.Time struct, stringify with datetime
 func bind(b []interface{}, v interface{}) []interface{} {
@@ -58,25 +32,29 @@ func bind(b []interface{}, v interface{}) []interface{} {
 // Others   -> name             -> `name`
 func buildSelectFields(selects []interface{}) string {
 	if len(selects) == 0 {
-		return "`*`"
+		return "*"
 	}
 	fields := ""
 	for _, f := range selects {
-		if v := toString(f); v != "" {
-			fields += v + ", "
+		if v, ok := f.(Raw); ok {
+			fields += v.String() + ", "
+		} else if v, ok := f.(alias); ok {
+			fields += v.String() + ", "
+		} else if v, ok := f.(string); ok {
+			fields += quote(v) + ", "
 		}
 	}
 	return strings.TrimRight(fields, ", ")
 }
 
-// Create WHERE phrase string.
+// Create WHERE clause string.
 // gqb uses prepared statement with "?", and add bind parameters slice
 // If field is Raw type, field won't escape in order to unexpected quote string is added.
 //
 // Raw type          -> Raw("COUNT(id)") -> COUNT(id)
 // column            -> name             -> `name`
 // column with table -> table.name       -> `table`.`name`
-func buildWhere(wheres []conditionBuilder, binds []interface{}) (string, []interface{}) {
+func buildWhere(wheres []ConditionBuilder, binds []interface{}) (string, []interface{}) {
 	if len(wheres) == 0 {
 		return "", binds
 	}
@@ -86,7 +64,7 @@ func buildWhere(wheres []conditionBuilder, binds []interface{}) (string, []inter
 	c := ""
 
 	for _, w := range wheres {
-		c = w.getCombine()
+		c = w.Combine()
 		if c != "" {
 			c = " " + c + " "
 		}
@@ -94,26 +72,32 @@ func buildWhere(wheres []conditionBuilder, binds []interface{}) (string, []inter
 			c = ""
 			first = false
 		}
-		var phrase string
-		phrase, binds = w.buildCondition(binds)
-		where += fmt.Sprintf("%s(%s)", c, phrase)
+		var clause string
+		clause, binds = w.Build(binds)
+		where += fmt.Sprintf("%s(%s)", c, clause)
 	}
 	return " WHERE " + where, binds
 }
 
-// Create ORDER BY phrase string.
+// Create ORDER BY clause string.
 func buildOrderBy(orders []Order) string {
 	if len(orders) == 0 {
 		return ""
 	}
 	order := []string{}
 	for _, o := range orders {
-		order = append(order, formatField(o.field)+" "+string(o.sort))
+		var s string
+		if o.sort == Rand {
+			s = driverCompat.RandFunc()
+		} else {
+			s = string(o.sort)
+		}
+		order = append(order, quote(o.field)+" "+s)
 	}
 	return " ORDER BY " + strings.Join(order, ", ")
 }
 
-// Create JOIN phrase string.
+// Create JOIN clause string.
 func buildJoin(joins []Join, baseTable string) string {
 	if len(joins) == 0 {
 		return ""
@@ -134,7 +118,7 @@ func buildJoin(joins []Join, baseTable string) string {
 	return join
 }
 
-// Create LIMIT phrase string.
+// Create LIMIT clause string.
 func buildLimit(limit int64) string {
 	if limit == 0 {
 		return ""
@@ -142,10 +126,23 @@ func buildLimit(limit int64) string {
 	return fmt.Sprintf(" LIMIT %d", limit)
 }
 
-// Create OFFSET phrase string.
+// Create OFFSET clause string.
 func buildOffset(offset int64) string {
 	if offset == 0 {
 		return ""
 	}
 	return fmt.Sprintf(" OFFSET %d", offset)
+}
+
+// Create GROUP BY clause string.
+func buildGroupBy(groupBy []string) string {
+	if len(groupBy) == 0 {
+		return ""
+	}
+
+	var gb string
+	for _, g := range groupBy {
+		gb += quote(g) + ", "
+	}
+	return " GROUP BY " + strings.TrimRight(gb, ", ")
 }

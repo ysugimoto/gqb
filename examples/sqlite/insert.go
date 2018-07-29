@@ -6,17 +6,18 @@ import (
 
 	"database/sql"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/ysugimoto/gqb"
 )
 
 func main() {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/example")
+	db, err := sql.Open("sqlite3", "file:/tmp/gqb_test.sqlite?cache=shared")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
+	gqb.SetDriver("sqlite")
 	data := gqb.Data{"name": "Slack"}
 	// the result is sql.Result
 	result, err := gqb.New(db).Insert("companies", data)
