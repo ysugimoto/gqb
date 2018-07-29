@@ -289,6 +289,7 @@ func (q *QueryBuilder) GetContext(ctx context.Context, table interface{}) (Resul
 		buildOffset(q.offset),
 	))
 
+	fmt.Println(query, binds)
 	defer q.Reset()
 	rows, err := q.db.QueryContext(ctx, query, binds...)
 	if err != nil {
@@ -329,18 +330,16 @@ func (q *QueryBuilder) scan(rows *sql.Rows) (Results, error) {
 			// We treat charater fields like VARCHAR, TEXT, ...
 			// Because Go's sql driver scan as []byte for string type column on interface{},
 			// so it's hard to convert to string on marshal JSON.
-			t := n.ScanType()
-			// Ensure []byte type
-			if t.Kind() == reflect.Slice && t.Name() == "RawBytes" {
+			v := *value
+			if b, ok := v.([]byte); ok {
 				// Also we need to ensure value is zero value to avoid panic
 				if reflect.ValueOf(value).IsValid() {
-					v := *value
-					values[name] = string(v.([]byte))
+					values[name] = string(b)
 					continue
 				}
 			}
 			// Other types like int, float, decimal will treat as interface directory
-			values[name] = *value
+			values[name] = v
 		}
 		results = append(results, NewResult(values))
 	}
@@ -365,7 +364,7 @@ func (q *QueryBuilder) UpdateContext(ctx context.Context, table interface{}, dat
 	binds := []interface{}{}
 
 	for _, k := range data.Keys() {
-		updates += quote(k) + " = ?, "
+		updates += quote(k) + " = " + driverCompat.PlaceHolder(len(binds)+1) + ", "
 		binds = bind(binds, data[k])
 	}
 	where, binds = buildWhere(q.wheres, binds)
@@ -402,7 +401,7 @@ func (q *QueryBuilder) InsertContext(ctx context.Context, table interface{}, dat
 
 	for _, k := range data.Keys() {
 		fields += quote(k) + ", "
-		values += "?, "
+		values += driverCompat.PlaceHolder(len(binds)+1) + ", "
 		binds = bind(binds, data[k])
 	}
 	query := fmt.Sprintf(

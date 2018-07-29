@@ -1,29 +1,26 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 
 	"database/sql"
 	"encoding/json"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/ysugimoto/gqb"
 )
 
 func main() {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/example")
+	db, err := sql.Open("sqlite3", "file:/tmp/gqb_test.sqlite?cache=shared")
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("sqlite connected")
 	defer db.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+	gqb.SetDriver("sqlite")
 	results, err := gqb.New(db).
-		Context(ctx).
 		Select("name").
 		Where("id", 1, gqb.Equal).
 		Get("companies")

@@ -37,11 +37,8 @@ func (m *mockExecutor) ExecContext(ctx context.Context, query string, binds ...i
 	return nil, mockError{}
 }
 
-func TestMysql(t *testing.T) {
+func TestAllDatabases(t *testing.T) {
 	runMysqlTest(t)
 	runPostgresTest(t)
-}
-
-func TestRemains(t *testing.T) {
-	t.Errorf("We have to write tests about GROUP BY")
+	runSQLiteTest(t)
 }

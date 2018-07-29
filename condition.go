@@ -28,7 +28,7 @@ func (c condition) Build(binds []interface{}) (string, []interface{}) {
 		values, ok := c.value.([]interface{})
 		if ok {
 			for _, v := range values {
-				q += "?, "
+				q += driverCompat.PlaceHolder(len(binds)+1) + ", "
 				binds = bind(binds, v)
 			}
 			clause = fmt.Sprintf("%s IN (%s)", quote(c.field), strings.Trim(q, ", "))
@@ -37,18 +37,18 @@ func (c condition) Build(binds []interface{}) (string, []interface{}) {
 		if c.value == nil {
 			clause = fmt.Sprintf("%s IS NULL", quote(c.field))
 		} else {
-			clause = fmt.Sprintf("%s %s ?", quote(c.field), string(c.comparison))
+			clause = fmt.Sprintf("%s %s %s", quote(c.field), string(c.comparison), driverCompat.PlaceHolder(len(binds)+1))
 			binds = bind(binds, c.value)
 		}
 	case NotEqual:
 		if c.value == nil {
 			clause = fmt.Sprintf("%s IS NOT NULL", quote(c.field))
 		} else {
-			clause = fmt.Sprintf("%s %s ?", quote(c.field), string(c.comparison))
+			clause = fmt.Sprintf("%s %s %s", quote(c.field), string(c.comparison), driverCompat.PlaceHolder(len(binds)+1))
 			binds = bind(binds, c.value)
 		}
 	default:
-		clause = fmt.Sprintf("%s %s ?", quote(c.field), string(c.comparison))
+		clause = fmt.Sprintf("%s %s %s", quote(c.field), string(c.comparison), driverCompat.PlaceHolder(len(binds)+1))
 		binds = bind(binds, c.value)
 	}
 	return clause, binds

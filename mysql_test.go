@@ -66,6 +66,16 @@ func runMysqlTest(t *testing.T) {
 		assert.Equal(t, 0, len(m.binds))
 	})
 
+	t.Run("Group by build query", func(t *testing.T) {
+		m := &mockExecutor{}
+		_, err := gqb.New(m).
+			GroupBy("id").
+			Get("example")
+		assert.IsType(t, mockError{}, err)
+		assert.Equal(t, "SELECT * FROM `example` GROUP BY `id`", m.query)
+		assert.Equal(t, 0, len(m.binds))
+	})
+
 	t.Run("Limit build query", func(t *testing.T) {
 		m := &mockExecutor{}
 		_, err := gqb.New(m).

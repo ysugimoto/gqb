@@ -17,13 +17,19 @@ func main() {
 	}
 	defer db.Close()
 
-	_, err = gqb.New(db).
-		Where("id", 3, gqb.Equal).
-		Delete("companies")
+	gqb.SetDriver("mysql")
+	data := gqb.Data{"name": "Slack"}
+	// the result is sql.Result
+	result, err := gqb.New(db).Insert("companies", data)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Id: 3 deleted.")
+	id, err := result.LastInsertId()
+	if err != nil {
+		log.Println("failed to retrieve last inserted ID")
+		return
+	}
+	fmt.Printf("Id %d has been inserted", id)
 }

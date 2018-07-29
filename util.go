@@ -3,18 +3,18 @@ package gqb
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/ysugimoto/gqb/compat"
 )
 
-var driverCompat compat.Compat = compat.MysqlCompat{}
+var driverCompat Compat = MysqlCompat{}
 
 func SetDriver(driverType string) {
 	switch driverType {
 	case "mysql":
-		driverCompat = compat.MysqlCompat{}
-	default:
-		driverCompat = compat.PostgresCompat{}
+		driverCompat = MysqlCompat{}
+	case "postgres":
+		driverCompat = PostgresCompat{}
+	case "sqlite":
+		driverCompat = SQLiteCompat{}
 	}
 }
 

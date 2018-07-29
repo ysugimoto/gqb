@@ -7,6 +7,7 @@ jobs:
       - image: mysql:5.7
         environment:
           MYSQL_ROOT_PASSWORD: root
+      - image: postgres:9.6
     environment:
       GQB_MYSQL_PORT: 3306
     steps:
@@ -16,7 +17,7 @@ jobs:
             #CirecleCI sets $GOPATH/bin executable autmatically
             curl -L -o $GOPATH/bin/dep https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64
             chmod +x $GOPATH/bin/dep
-            sudo apt-get update -y && sudo apt-get install -y mysql-client
+            sudo apt-get update -y && sudo apt-get install -y mysql-client postgresql-client-9.6 sqlite3
       - restore_cache:
           keys:
             - v1-go-vendor-{{ checksum "Gopkg.lock" }}

@@ -8,8 +8,8 @@ import (
 	"github.com/ysugimoto/gqb"
 )
 
-func runPostgresTest(t *testing.T) {
-	gqb.SetDriver("postgres")
+func runSQLiteTest(t *testing.T) {
+	gqb.SetDriver("sqlite")
 
 	t.Run("Build error if table not specified", func(t *testing.T) {
 		m := &mockExecutor{}
@@ -103,7 +103,7 @@ func runPostgresTest(t *testing.T) {
 			Where("name", "john", gqb.Equal).
 			Get("example")
 		assert.IsType(t, mockError{}, err)
-		assert.Equal(t, `SELECT * FROM "example" WHERE ("id" = $1) AND ("name" = $2)`, m.query)
+		assert.Equal(t, `SELECT * FROM "example" WHERE ("id" = ?) AND ("name" = ?)`, m.query)
 		assert.Equal(t, 2, len(m.binds))
 		v, ok := m.binds[0].(int)
 		if !ok {
@@ -125,7 +125,7 @@ func runPostgresTest(t *testing.T) {
 			WhereIn("id", 1, 2, 3, 4, 5).
 			Get("example")
 		assert.IsType(t, mockError{}, err)
-		assert.Equal(t, `SELECT * FROM "example" WHERE ("id" IN ($1, $2, $3, $4, $5))`, m.query)
+		assert.Equal(t, `SELECT * FROM "example" WHERE ("id" IN (?, ?, ?, ?, ?))`, m.query)
 		assert.Equal(t, 5, len(m.binds))
 		for i := 0; i < len(m.binds); i++ {
 			v, ok := m.binds[i].(int)
@@ -143,7 +143,7 @@ func runPostgresTest(t *testing.T) {
 			Like("name", "joh%").
 			Get("example")
 		assert.IsType(t, mockError{}, err)
-		assert.Equal(t, `SELECT * FROM "example" WHERE ("name" LIKE $1)`, m.query)
+		assert.Equal(t, `SELECT * FROM "example" WHERE ("name" LIKE ?)`, m.query)
 		assert.Equal(t, 1, len(m.binds))
 		s, ok := m.binds[0].(string)
 		if !ok {
@@ -162,7 +162,7 @@ func runPostgresTest(t *testing.T) {
 			}).
 			Get("example")
 		assert.IsType(t, mockError{}, err)
-		assert.Equal(t, `SELECT * FROM "example" WHERE ("id" = $1 AND "name" = $2)`, m.query)
+		assert.Equal(t, `SELECT * FROM "example" WHERE ("id" = ? AND "name" = ?)`, m.query)
 		assert.Equal(t, 2, len(m.binds))
 		v, ok := m.binds[0].(int)
 		if !ok {
@@ -185,7 +185,7 @@ func runPostgresTest(t *testing.T) {
 			Where("name", "John Smith", gqb.Equal).
 			Get("example")
 		assert.IsType(t, mockError{}, err)
-		assert.Equal(t, `SELECT * FROM "example" JOIN "users" ON ("example"."id" = "users"."id") WHERE ("name" = $1)`, m.query)
+		assert.Equal(t, `SELECT * FROM "example" JOIN "users" ON ("example"."id" = "users"."id") WHERE ("name" = ?)`, m.query)
 		assert.Equal(t, 1, len(m.binds))
 		if v, ok := m.binds[0].(string); !ok {
 			t.Errorf("first bind parameter should be string")
@@ -215,7 +215,7 @@ func runPostgresTest(t *testing.T) {
 			Get("example")
 
 		assert.IsType(t, mockError{}, err)
-		assert.Equal(t, `SELECT "id", "name" FROM "example" JOIN "users" ON ("example"."id" = "users"."id") WHERE ("register_at" < $1) AND ("id" = $2 AND "name" = $3) OR ("id" = $4 AND "name" = $5) ORDER BY "register_at" DESC LIMIT 10 OFFSET 10`, m.query)
+		assert.Equal(t, `SELECT "id", "name" FROM "example" JOIN "users" ON ("example"."id" = "users"."id") WHERE ("register_at" < ?) AND ("id" = ? AND "name" = ?) OR ("id" = ? AND "name" = ?) ORDER BY "register_at" DESC LIMIT 10 OFFSET 10`, m.query)
 		assert.Equal(t, 5, len(m.binds))
 		if v, ok := m.binds[0].(string); !ok {
 			t.Errorf("first bind parameter should be string")
@@ -252,7 +252,7 @@ func runPostgresTest(t *testing.T) {
 				"name": "John Smith",
 			})
 		assert.IsType(t, mockError{}, err)
-		assert.Equal(t, `INSERT INTO "example" ("id", "name") VALUES ($1, $2)`, m.query)
+		assert.Equal(t, `INSERT INTO "example" ("id", "name") VALUES (?, ?)`, m.query)
 		assert.Equal(t, 2, len(m.binds))
 		if v, ok := m.binds[0].(int); !ok {
 			t.Errorf("first bind parameter should be int")
@@ -276,7 +276,7 @@ func runPostgresTest(t *testing.T) {
 				"updated_at": now,
 			})
 		assert.IsType(t, mockError{}, err)
-		assert.Equal(t, `UPDATE "example" SET "name" = $1, "updated_at" = $2 WHERE ("id" = $3)`, m.query)
+		assert.Equal(t, `UPDATE "example" SET "name" = ?, "updated_at" = ? WHERE ("id" = ?)`, m.query)
 		assert.Equal(t, 3, len(m.binds))
 		if v, ok := m.binds[0].(string); !ok {
 			t.Errorf("first bind parameter should be string")
@@ -301,7 +301,7 @@ func runPostgresTest(t *testing.T) {
 			Where("id", 1, gqb.Equal).
 			Delete("example")
 		assert.IsType(t, mockError{}, err)
-		assert.Equal(t, `DELETE FROM "example" WHERE ("id" = $1)`, m.query)
+		assert.Equal(t, `DELETE FROM "example" WHERE ("id" = ?)`, m.query)
 		assert.Equal(t, 1, len(m.binds))
 		if v, ok := m.binds[0].(int); !ok {
 			t.Errorf("first bind parameter should be int")

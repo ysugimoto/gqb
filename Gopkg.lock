@@ -14,6 +14,21 @@
   version = "v1.4.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/lib/pq"
+  packages = [
+    ".",
+    "oid"
+  ]
+  revision = "90697d60dd844d5ef6ff15135d0203f65d2f53b8"
+
+[[projects]]
+  name = "github.com/mattn/go-sqlite3"
+  packages = ["."]
+  revision = "25ecb14adfc7543176f7d85291ec7dba82c6f7e4"
+  version = "v1.9.0"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -34,6 +49,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ccf6fe096f7ad08a9355f1500dfc3472b723b912eae04b59ad787378050f1a9d"
+  inputs-digest = "095c1c68670fb534ea9f300ad8b56a7f66afb3b49abc78522da994840f6b92b3"
   solver-name = "gps-cdcl"
   solver-version = 1

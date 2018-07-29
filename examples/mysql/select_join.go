@@ -18,28 +18,32 @@ func main() {
 	}
 	defer db.Close()
 
+	gqb.SetDriver("mysql")
 	result, err := gqb.New(db).
-		Select("name").
-		Where("id", 1, gqb.Equal).
+		Select("name", "url").
+		Join("company_attributes", "id", "company_id", gqb.Equal).
+		// Need to specify table name to avoid ambigous 'id'column
+		Where("companies.id", 3, gqb.Equal).
 		GetOne("companies")
 
 	if err != nil {
 		log.Fatal(err)
 	}
 	// retrieve result
-	fmt.Println(result.MustString("name")) //=> Google
+	fmt.Println(result.MustString("url")) //=> https://microsoft.com
 
 	// Also can marshal JSON directly
 	buf, _ := json.Marshal(result)
-	fmt.Println(string(buf)) //=> {"name":"Google"}
+	fmt.Println(string(buf)) //=> {"name":"Microsoft","url":"https://microsoft.com"}
 
 	// Map to your struct
 	type Company struct {
-		Name string `db:"name"` // gqb maps value corresponds to "db" tag field
+		Name string `db:"name"`
+		Url  string `db:"url"`
 	}
-	company := Company{}
-	if err := result.Map(&company); err != nil {
+	ms := Company{}
+	if err := result.Map(&ms); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(company.Name) //=> Google
+	fmt.Println(ms.Name) //=> Microsoft
 }

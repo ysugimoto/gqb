@@ -6,17 +6,18 @@ import (
 
 	"database/sql"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 	"github.com/ysugimoto/gqb"
 )
 
 func main() {
-	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/example")
+	db, err := sql.Open("postgres", "user=postgres sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
+	gqb.SetDriver("postgres")
 	data := gqb.Data{"name": "Github"}
 	_, err = gqb.New(db).
 		Where("id", 1, gqb.Equal).
@@ -26,6 +27,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Id: 1 updated to Github.")
+	fmt.Println("Id: 1 updated to Github.")
 
 }
