@@ -7,17 +7,26 @@ import (
 )
 
 const (
-	// Time format, this is used for DATETIME column
-	timeFormat = "2006-01-02 15:04:05"
+	// Datetime format, this is used for DATETIME column
+	datetimeFormat = "2006-01-02 15:04:05"
 
 	// Date format, this is used for DATE column
 	dateFormat = "2006-01-02"
+
+	// Time format this is used for time column on postgres
+	timeFormat = "15:04:05"
 )
 
 // bind() adds some value to bind slice values.
 // if value is time.Time struct, stringify with datetime
 func bind(b []interface{}, v interface{}) []interface{} {
 	if t, ok := v.(time.Time); ok {
+		b = append(b, t.Format(datetimeFormat))
+	} else if t, ok := v.(Datetime); ok {
+		b = append(b, t.Format(datetimeFormat))
+	} else if t, ok := v.(Date); ok {
+		b = append(b, t.Format(dateFormat))
+	} else if t, ok := v.(Time); ok {
 		b = append(b, t.Format(timeFormat))
 	} else {
 		b = append(b, v)

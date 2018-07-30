@@ -2,8 +2,10 @@ package gqb
 
 import (
 	"context"
-	"database/sql"
 	"sort"
+	"time"
+
+	"database/sql"
 )
 
 type (
@@ -21,6 +23,18 @@ type (
 		from string
 		to   string
 	}
+
+	// Datetime format for column types
+	// This type corresponds to "DATETIME" on mysql, "timestamp" on postgres.
+	Datetime = time.Time
+
+	// Date format for column types.
+	// This type corresponds to "DATE" column on mysql, "date" column on postgres.
+	Date = time.Time
+
+	// Time format for column types.
+	// This type corresponds to "time" column  on posgres.
+	Time = time.Time
 )
 
 type (

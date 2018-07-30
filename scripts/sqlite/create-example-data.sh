@@ -8,10 +8,11 @@ $SQLITECMD << EOS
 DROP TABLE If EXISTS companies;
 CREATE TABLE companies (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT
+  name TEXT,
+  created_at TEXT
 );
 
-INSERT INTO companies (name) VALUES ('Google'), ('Apple'), ('Microsoft');
+INSERT INTO companies (id, name, created_at) VALUES (1, 'Google', '2018-07-30 00:00:00'), (2, 'Apple', '2018-07-30 00:00:00'), (3, 'Microsoft', '2018-07-30 00:00:00');
 
 DROP TABLE IF EXISTS company_attributes;
 CREATE TABLE company_attributes (

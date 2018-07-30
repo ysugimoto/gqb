@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"database/sql"
 	"encoding/json"
@@ -21,7 +22,7 @@ func main() {
 
 	gqb.SetDriver("sqlite")
 	results, err := gqb.New(db).
-		Select("name").
+		Select("name", "created_at").
 		Where("id", 1, gqb.Equal).
 		Get("companies")
 
@@ -39,11 +40,13 @@ func main() {
 
 	// Map to your struct
 	type Company struct {
-		Name string `db:"name"` // gqb maps value corresponds to "db" tag field
+		Name      string    `db:"name"` // gqb maps value corresponds to "db" tag field
+		CreatedAt time.Time `db:"created_at"`
 	}
 	companies := []Company{}
 	if err := results.Map(&companies); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(companies[0].Name) //=> Google
+	fmt.Println(companies[0].CreatedAt.Format("2006-01-02 15:04:05"))
 }

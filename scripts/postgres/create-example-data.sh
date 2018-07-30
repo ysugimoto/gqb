@@ -8,10 +8,11 @@ $PSQLCMD -d postgres << EOS
 DROP TABLE IF EXISTS companies;
 CREATE TABLE companies (
   id SERIAL,
-  name varchar(255) NOT NULL
+  name varchar(255) NOT NULL,
+  created_at timestamp
 );
 
-INSERT INTO companies (id, name) VALUES (1, 'Google'), (2, 'Apple'), (3, 'Microsoft');
+INSERT INTO companies (id, name, created_at) VALUES (1, 'Google', '2018-07-30 00:00:00'), (2, 'Apple', '2018-07-30 00:00:00'), (3, 'Microsoft', '2018-07-30 00:00:00');
 
 DROP TABLE IF EXISTS company_attributes;
 CREATE TABLE company_attributes (

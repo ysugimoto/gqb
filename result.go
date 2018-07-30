@@ -13,6 +13,7 @@ const (
 	nullFloat64 = "NullFloat64"
 	nullInt64   = "NullInt64"
 	nullBool    = "NullBool"
+	timeStruct  = "Time"
 )
 
 // Result is struct for SELECT query result mapper
@@ -142,38 +143,64 @@ func (r *Result) Bytes(f string) ([]byte, error) {
 
 // Force get field value as time.Time with date format
 func (r *Result) MustDate(f string) time.Time {
-	t, _ := time.Parse(dateFormat, r.MustString(f))
-	return t
+	v := r.values[f]
+	if t, ok := v.(time.Time); ok {
+		return t
+	} else {
+		s := v.(string)
+		t, _ := time.Parse(dateFormat, s)
+		return t
+	}
 }
 
 // Get field value as time.Time with caring type conversion, time parsing.
 // The value must be and date format string
 func (r *Result) Date(f string) (time.Time, error) {
-	if v, err := r.String(f); err != nil {
-		return time.Time{}, err
-	} else if t, err := time.Parse(dateFormat, v); err != nil {
-		return time.Time{}, fmt.Errorf("field %s couldn't cast to time.Time: %s", f, err.Error())
-	} else {
+	if v, ok := r.values[f]; !ok {
+		return time.Time{}, fmt.Errorf("field %s doesn't exist in result", f)
+	} else if v == nil {
+		return time.Time{}, fmt.Errorf("field %s is nil", f)
+	} else if t, ok := v.(time.Time); ok {
 		return t, nil
+	} else if s, ok := v.(string); ok {
+		if t, err := time.Parse(dateFormat, s); err != nil {
+			return time.Time{}, err
+		} else {
+			return t, nil
+		}
 	}
+	return time.Time{}, fmt.Errorf("field %s couldn't cast to time.Time", f)
 }
 
 // Force get field value as time.Time with datetime format
 func (r *Result) MustDatetime(f string) time.Time {
-	t, _ := time.Parse(timeFormat, r.MustString(f))
-	return t
+	v := r.values[f]
+	if t, ok := v.(time.Time); ok {
+		return t
+	} else {
+		s := v.(string)
+		t, _ := time.Parse(datetimeFormat, s)
+		return t
+	}
 }
 
 // Get field value as time.Time with caring type conversion, time parsing.
 // The value must be and dateitme format string
 func (r *Result) Datetime(f string) (time.Time, error) {
-	if v, err := r.String(f); err != nil {
-		return time.Time{}, err
-	} else if t, err := time.Parse(timeFormat, v); err != nil {
-		return time.Time{}, fmt.Errorf("field %s couldn't cast to time.Time: %s", f, err.Error())
-	} else {
+	if v, ok := r.values[f]; !ok {
+		return time.Time{}, fmt.Errorf("field %s doesn't exist in result", f)
+	} else if v == nil {
+		return time.Time{}, fmt.Errorf("field %s is nil", f)
+	} else if t, ok := v.(time.Time); ok {
 		return t, nil
+	} else if s, ok := v.(string); ok {
+		if t, err := time.Parse(datetimeFormat, s); err != nil {
+			return time.Time{}, err
+		} else {
+			return t, nil
+		}
 	}
+	return time.Time{}, fmt.Errorf("field %s couldn't cast to time.Time", f)
 }
 
 // Map() assigns query result into supplied struct field values
@@ -219,20 +246,18 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 	if !ok || !r.exists(name) {
 		return nil
 	}
-	if err, ok := r.assignBasicTypes(t, v, name, isPtr); err != nil {
+	if err := r.assignBasicTypes(t, v, name, isPtr); err != nil {
 		return err
-	} else if !ok {
-		r.assignNullableTypes(t, v, name, isPtr)
 	}
 	return nil
 }
 
 // assignBasicTypes assigns value for Go's basic types
-func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, isPtr bool) (error, bool) {
+func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, isPtr bool) error {
 	switch t.Kind() {
 	case reflect.String:
 		if s, err := r.String(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			v.Set(reflect.ValueOf(&s))
 		} else {
@@ -240,7 +265,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Bool:
 		if i, err := r.Int(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			b := i > 0
 			v.Set(reflect.ValueOf(&b))
@@ -249,7 +274,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Int:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			ii := int(i)
 			v.Set(reflect.ValueOf(&ii))
@@ -258,7 +283,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Int8:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			ii := int8(i)
 			v.Set(reflect.ValueOf(&ii))
@@ -267,7 +292,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Int16:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			ii := int16(i)
 			v.Set(reflect.ValueOf(&ii))
@@ -276,7 +301,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Int32:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			ii := int32(i)
 			v.Set(reflect.ValueOf(&ii))
@@ -285,7 +310,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Int64:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			v.Set(reflect.ValueOf(&i))
 		} else {
@@ -293,7 +318,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Uint:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			ui := uint(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -302,7 +327,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Uint8:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			ui := uint8(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -311,7 +336,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Uint16:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			ui := uint16(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -320,7 +345,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Uint32:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			ui := uint32(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -329,7 +354,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Uint64:
 		if i, err := r.Int64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			ui := uint64(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -338,7 +363,7 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Float32:
 		if i, err := r.Float64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			f32 := float32(i)
 			v.Set(reflect.ValueOf(&f32))
@@ -347,20 +372,21 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 		}
 	case reflect.Float64:
 		if i, err := r.Float64(name); err != nil {
-			return err, false
+			return err
 		} else if isPtr {
 			v.Set(reflect.ValueOf(&i))
 		} else {
 			v.SetFloat(i)
 		}
-	default:
-		return nil, false
+	case reflect.Struct:
+		return r.assignStructType(t, v, name, isPtr)
 	}
-	return nil, true
+	return nil
 }
 
-// assignNullableTypes assigns value for sql.NullXXX types
-func (r *Result) assignNullableTypes(t reflect.Type, v reflect.Value, name string, isPtr bool) {
+// assignStructType() assigns value for struct types
+func (r *Result) assignStructType(t reflect.Type, v reflect.Value, name string, isPtr bool) error {
+	fmt.Println(t.Name())
 	switch t.Name() {
 	case nullString:
 		i, err := r.String(name)
@@ -406,7 +432,37 @@ func (r *Result) assignNullableTypes(t reflect.Type, v reflect.Value, name strin
 		} else {
 			v.Set(reflect.ValueOf(nv))
 		}
+	case timeStruct:
+		iv := r.values[name]
+		if i, ok := iv.(time.Time); ok {
+			if isPtr {
+				v.Set(reflect.ValueOf(&i))
+			} else {
+				v.Set(reflect.ValueOf(i))
+			}
+		} else if s, ok := iv.(string); ok {
+			if i, err := time.Parse(datetimeFormat, s); err == nil {
+				if isPtr {
+					v.Set(reflect.ValueOf(&i))
+				} else {
+					v.Set(reflect.ValueOf(i))
+				}
+			} else if i, err := time.Parse(dateFormat, s); err == nil {
+				if isPtr {
+					v.Set(reflect.ValueOf(&i))
+				} else {
+					v.Set(reflect.ValueOf(i))
+				}
+			} else if i, err := time.Parse(timeFormat, s); err == nil {
+				if isPtr {
+					v.Set(reflect.ValueOf(&i))
+				} else {
+					v.Set(reflect.ValueOf(i))
+				}
+			}
+		}
 	}
+	return nil
 }
 
 // Short syntax for []*Result

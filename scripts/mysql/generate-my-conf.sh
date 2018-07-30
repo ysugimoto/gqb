@@ -7,5 +7,5 @@ cat << EOS > ${DIR}/my.conf
 user = root
 password = root
 host = 127.0.0.1
-port = ${GQB_MYSQL_PORT}
+port = 3306
 EOS

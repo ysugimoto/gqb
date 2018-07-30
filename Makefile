@@ -49,10 +49,10 @@ bench:
 	docker run --rm -d --name gqb_mysql_test -e "MYSQL_ROOT_PASSWORD=root" -p $(GQB_MYSQL_PORT):3306 mysql:5.7
 	./scripts/generate-my-conf.sh
 	./scripts/wait-for-database.sh
-	./scripts/create-test-data.sh 100
+	./scripts/create-benchmark-data.sh 100
 	go test -bench . -benchmem
-	./scripts/create-test-data.sh 1000
+	./scripts/create-benchmark-data.sh 1000
 	go test -bench . -benchmem
-	./scripts/create-test-data.sh 10000
+	./scripts/create-benchmark-data.sh 10000
 	go test -bench . -benchmem
 	docker stop gqb_mysql_test
