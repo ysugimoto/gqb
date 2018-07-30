@@ -1,10 +1,18 @@
 package gqb
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
+)
+
+const (
+	nullString  = "NullString"
+	nullFloat64 = "NullFloat64"
+	nullInt64   = "NullInt64"
+	nullBool    = "NullBool"
 )
 
 // Result is struct for SELECT query result mapper
@@ -211,10 +219,20 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 	if !ok || !r.exists(name) {
 		return nil
 	}
+	if err, ok := r.assignBasicTypes(t, v, name, isPtr); err != nil {
+		return err
+	} else if !ok {
+		r.assignNullableTypes(t, v, name, isPtr)
+	}
+	return nil
+}
+
+// assignBasicTypes assigns value for Go's basic types
+func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, isPtr bool) (error, bool) {
 	switch t.Kind() {
 	case reflect.String:
 		if s, err := r.String(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			v.Set(reflect.ValueOf(&s))
 		} else {
@@ -222,7 +240,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Bool:
 		if i, err := r.Int(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			b := i > 0
 			v.Set(reflect.ValueOf(&b))
@@ -231,7 +249,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Int:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			ii := int(i)
 			v.Set(reflect.ValueOf(&ii))
@@ -240,7 +258,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Int8:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			ii := int8(i)
 			v.Set(reflect.ValueOf(&ii))
@@ -249,7 +267,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Int16:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			ii := int16(i)
 			v.Set(reflect.ValueOf(&ii))
@@ -258,7 +276,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Int32:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			ii := int32(i)
 			v.Set(reflect.ValueOf(&ii))
@@ -267,7 +285,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Int64:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			v.Set(reflect.ValueOf(&i))
 		} else {
@@ -275,7 +293,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Uint:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			ui := uint(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -284,7 +302,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Uint8:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			ui := uint8(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -293,7 +311,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Uint16:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			ui := uint16(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -302,7 +320,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Uint32:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			ui := uint32(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -311,7 +329,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Uint64:
 		if i, err := r.Int64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			ui := uint64(i)
 			v.Set(reflect.ValueOf(&ui))
@@ -320,7 +338,7 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Float32:
 		if i, err := r.Float64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			f32 := float32(i)
 			v.Set(reflect.ValueOf(&f32))
@@ -329,14 +347,66 @@ func (r *Result) mapStructField(f reflect.StructField, v reflect.Value) error {
 		}
 	case reflect.Float64:
 		if i, err := r.Float64(name); err != nil {
-			return err
+			return err, false
 		} else if isPtr {
 			v.Set(reflect.ValueOf(&i))
 		} else {
 			v.SetFloat(i)
 		}
+	default:
+		return nil, false
 	}
-	return nil
+	return nil, true
+}
+
+// assignNullableTypes assigns value for sql.NullXXX types
+func (r *Result) assignNullableTypes(t reflect.Type, v reflect.Value, name string, isPtr bool) {
+	switch t.Name() {
+	case nullString:
+		i, err := r.String(name)
+		nv := sql.NullString{
+			String: i,
+			Valid:  err == nil,
+		}
+		if isPtr {
+			v.Set(reflect.ValueOf(&nv))
+		} else {
+			v.Set(reflect.ValueOf(nv))
+		}
+	case nullFloat64:
+		i, err := r.Float64(name)
+		nv := sql.NullFloat64{
+			Float64: i,
+			Valid:   err == nil,
+		}
+		if isPtr {
+			v.Set(reflect.ValueOf(&nv))
+		} else {
+			v.Set(reflect.ValueOf(nv))
+		}
+	case nullInt64:
+		i, err := r.Int64(name)
+		nv := sql.NullInt64{
+			Int64: i,
+			Valid: err == nil,
+		}
+		if isPtr {
+			v.Set(reflect.ValueOf(&nv))
+		} else {
+			v.Set(reflect.ValueOf(nv))
+		}
+	case nullBool:
+		i, err := r.Int(name)
+		nv := sql.NullBool{
+			Bool:  i > 0,
+			Valid: err == nil,
+		}
+		if isPtr {
+			v.Set(reflect.ValueOf(&nv))
+		} else {
+			v.Set(reflect.ValueOf(nv))
+		}
+	}
 }
 
 // Short syntax for []*Result

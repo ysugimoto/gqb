@@ -1,9 +1,16 @@
 # gqb - Golang Simple Query Builder
 
 ## Features
+
 - Build SQL easily through the method chains
 - Returns abstact scanned result
 - Query results can marshal JSON directly
+
+## Support drivers
+
+- MySQL
+- PostgreSQL
+- SQLite3
 
 ## Installation
 
@@ -45,7 +52,15 @@ if err != nil {
 defer db.Close()
 ```
 
-### Getting started
+And, also determine driver which you will use:
+
+```go
+gqb.SetDriver("mysql") // also available "postgres" or "sqlite"
+```
+
+Above line is needed because gqb have to build SQL with considering driver's dialect.
+
+### Getting started (example for MySQL)
 
 The following example maybe generic usage. We expects SQL as:
 
@@ -126,6 +141,10 @@ it will map values to field which corresponds to tag value of `db:"field"`.
 - uint64 / \*uint64
 - float32 / \*float32
 - float64 / \*float64
+- sql.NullString
+- sql.NullBool
+- sql.NullFloat64
+- sql.NullInt64
 
 `[]byte`, corresponds to `blob` type column not supported.yet.
 

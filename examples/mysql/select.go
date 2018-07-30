@@ -38,7 +38,7 @@ func main() {
 
 	// Map to your struct
 	type Company struct {
-		Name string `db:"name"` // gqb maps value corresponds to "db" tag field
+		Name sql.NullString `db:"name"` // gqb maps value corresponds to "db" tag field
 	}
 	companies := []Company{}
 	if err := results.Map(&companies); err != nil {
