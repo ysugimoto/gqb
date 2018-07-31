@@ -46,6 +46,7 @@ func main() {
 	if err := results.Map(&companies); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(companies[0].Name) //=> Google
-	fmt.Println(companies[0].CreatedAt.Format("2006-01-02 15:04:05"))
+	fmt.Println(companies)
+	// fmt.Println(companies[0].Name) //=> Google
+	// fmt.Println(companies[0].CreatedAt.Format("2006-01-02 15:04:05"))
 }

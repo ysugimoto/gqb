@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"database/sql"
 
@@ -23,7 +24,10 @@ func main() {
 	}
 
 	gqb.SetDriver("sqlite")
-	data := gqb.Data{"name": "Slack"}
+	data := gqb.Data{
+		"name":       "Slack",
+		"created_at": gqb.Datetime(time.Now()),
+	}
 	// gqb.New() also accepts *sql.Tx
 	result, err := gqb.New(tx).Insert("companies", data)
 

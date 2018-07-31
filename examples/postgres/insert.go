@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"database/sql"
 
@@ -17,7 +18,10 @@ func main() {
 	defer db.Close()
 
 	gqb.SetDriver("postgres")
-	data := gqb.Data{"name": "Slack"}
+	data := gqb.Data{
+		"name":       "Slack",
+		"created_at": gqb.Datetime(time.Now()),
+	}
 	// the result is sql.Result
 	if _, err := gqb.New(db).Insert("companies", data); err != nil {
 		log.Fatal(err)

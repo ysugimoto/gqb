@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"database/sql"
 
@@ -18,7 +19,10 @@ func main() {
 	defer db.Close()
 
 	gqb.SetDriver("sqlite")
-	data := gqb.Data{"name": "Slack"}
+	data := gqb.Data{
+		"name":       "Slack",
+		"created_at": gqb.Datetime(time.Now()),
+	}
 	// the result is sql.Result
 	result, err := gqb.New(db).Insert("companies", data)
 

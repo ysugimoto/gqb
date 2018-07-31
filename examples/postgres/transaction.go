@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"database/sql"
 
@@ -22,7 +23,10 @@ func main() {
 	}
 
 	gqb.SetDriver("postgres")
-	data := gqb.Data{"name": "Slack"}
+	data := gqb.Data{
+		"name":       "Slack",
+		"created_at": gqb.Datetime(time.Now()),
+	}
 	// gqb.New() also accepts *sql.Tx
 	if _, err := gqb.New(tx).Insert("companies", data); err != nil {
 		tx.Rollback()

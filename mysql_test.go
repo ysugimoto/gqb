@@ -305,6 +305,38 @@ func runMysqlTest(t *testing.T) {
 		}
 	})
 
+	t.Run("BulkInsert query", func(t *testing.T) {
+		m := &mockExecutor{}
+		_, err := gqb.New(m).
+			BulkInsert("example", []gqb.Data{
+				gqb.Data{"id": 1, "name": "John Smith"},
+				gqb.Data{"id": 2, "name": "Jane Smith"},
+			})
+		assert.IsType(t, mockError{}, err)
+		assert.Equal(t, "INSERT INTO `example` (`id`, `name`) VALUES (?, ?), (?, ?)", m.query)
+		assert.Equal(t, 4, len(m.binds))
+		if v, ok := m.binds[0].(int); !ok {
+			t.Errorf("first bind parameter should be int")
+		} else {
+			assert.Equal(t, 1, v)
+		}
+		if v, ok := m.binds[1].(string); !ok {
+			t.Errorf("second bind parameter should be string")
+		} else {
+			assert.Equal(t, "John Smith", v)
+		}
+		if v, ok := m.binds[2].(int); !ok {
+			t.Errorf("third bind parameter should be int")
+		} else {
+			assert.Equal(t, 2, v)
+		}
+		if v, ok := m.binds[3].(string); !ok {
+			t.Errorf("fourth bind parameter should be string")
+		} else {
+			assert.Equal(t, "Jane Smith", v)
+		}
+	})
+
 	t.Run("Update query", func(t *testing.T) {
 		m := &mockExecutor{}
 		now := time.Now()

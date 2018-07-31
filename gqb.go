@@ -414,6 +414,46 @@ func (q *QueryBuilder) InsertContext(ctx context.Context, table interface{}, dat
 	return q.db.ExecContext(ctx, query, binds...)
 }
 
+// Execute bulk INSERT query
+func (q *QueryBuilder) BulkInsert(table interface{}, data []Data) (sql.Result, error) {
+	return q.BulkInsertContext(context.Background(), table, data)
+}
+
+// Execute bulk INSERT query with context
+func (q *QueryBuilder) BulkInsertContext(ctx context.Context, table interface{}, data []Data) (sql.Result, error) {
+	if data == nil {
+		return nil, fmt.Errorf("insert data must be non-nil")
+	}
+	mainTable, err := q.formatTable(table)
+	if err != nil {
+		return nil, err
+	}
+
+	var fields string
+	valueGroup := []string{}
+	binds := []interface{}{}
+
+	for i, d := range data {
+		var values string
+		for _, k := range d.Keys() {
+			if i == 0 {
+				fields += quote(k) + ", "
+			}
+			values += driverCompat.PlaceHolder(len(binds)+1) + ", "
+			binds = bind(binds, d[k])
+		}
+		valueGroup = append(valueGroup, "("+strings.TrimRight(values, ", ")+")")
+	}
+	query := fmt.Sprintf(
+		"INSERT INTO %s (%s) VALUES %s",
+		mainTable,
+		strings.TrimRight(fields, ", "),
+		strings.Join(valueGroup, ", "),
+	)
+	defer q.Reset()
+	return q.db.ExecContext(ctx, query, binds...)
+}
+
 // Execute DELETE query
 func (q *QueryBuilder) Delete(table interface{}) (sql.Result, error) {
 	return q.DeleteContext(context.Background(), table)
