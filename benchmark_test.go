@@ -2,7 +2,6 @@ package gqb_test
 
 import (
 	"database/sql"
-	"os"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -10,7 +9,7 @@ import (
 )
 
 func connectDatabase() (*sql.DB, error) {
-	return sql.Open("mysql", "root:root@tcp(127.0.0.1:"+os.Getenv("GQB_MYSQL_PORT")+")/gqb_test")
+	return sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/gqb_test")
 }
 
 func BenchmarkNativeSQL(b *testing.B) {
@@ -20,6 +19,7 @@ func BenchmarkNativeSQL(b *testing.B) {
 		return
 	}
 	defer db.Close()
+	gqb.SetDriver("mysql")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		query := "SELECT * FROM companies WHERE id = ? OR id = ?"
@@ -54,6 +54,7 @@ func BenchmarkQueryBuilder(b *testing.B) {
 		return
 	}
 	defer db.Close()
+	gqb.SetDriver("mysql")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rows, err := gqb.New(db).

@@ -289,7 +289,6 @@ func (q *QueryBuilder) GetContext(ctx context.Context, table interface{}) (Resul
 		buildOffset(q.offset),
 	))
 
-	fmt.Println(query, binds)
 	defer q.Reset()
 	rows, err := q.db.QueryContext(ctx, query, binds...)
 	if err != nil {

@@ -141,6 +141,7 @@ it will map values to field which corresponds to tag value of `db:"field"`.
 - uint64 / \*uint64
 - float32 / \*float32
 - float64 / \*float64
+- time.Time / `*time.Time
 - sql.NullString
 - sql.NullBool
 - sql.NullFloat64
