@@ -386,7 +386,6 @@ func (r *Result) assignBasicTypes(t reflect.Type, v reflect.Value, name string, 
 
 // assignStructType() assigns value for struct types
 func (r *Result) assignStructType(t reflect.Type, v reflect.Value, name string, isPtr bool) error {
-	fmt.Println(t.Name())
 	switch t.Name() {
 	case nullString:
 		i, err := r.String(name)
