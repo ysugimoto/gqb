@@ -318,7 +318,7 @@ func runSQLiteTest(t *testing.T) {
 		if v, ok := m.binds[1].(string); !ok {
 			t.Errorf("second bind parameter should be string")
 		} else {
-			assert.Equal(t, now.Format("2006-01-2 15:04:05"), v)
+			assert.Equal(t, now.Format("2006-01-02 15:04:05"), v)
 		}
 		if v, ok := m.binds[2].(int); !ok {
 			t.Errorf("third bind parameter should be int")
