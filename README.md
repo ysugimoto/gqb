@@ -100,7 +100,7 @@ fmt.Println(companies[0].Name) //=> Google
 ```
 
 If you want to get a single record, you can call `GetOne("companies")` instead.
-To leaan more example usage, see [examples](https://github.com/ysugimoto/gqb/tree/master/examples).
+To learn more example usage, see [examples](https://github.com/ysugimoto/gqb/tree/master/examples).
 
 ## Query Execution
 
@@ -121,7 +121,7 @@ For example, to retrieve `id int(11)` column, you should call `result.MustInt64(
 Occasionally there is a case that result value `null`, then you can call `v, err := result.Int64("id")`.
 The `err` is returned if column value doesnt' exist or `null`.
 
-Also, you can confirm field value is `null` via `result.Nil("id")`. It returns `true` is value is `null`.
+Also, you can confirm field value is `null` via `result.Nil("id")`. It returns `true` if value is `null`.
 
 And, if you want to use query result as your specific struct, you can call `result.Map(&strcut)`.
 it will map values to field which corresponds to tag value of `db:"field"`.
@@ -153,25 +153,19 @@ it will map values to field which corresponds to tag value of `db:"field"`.
 
 Native SQL vs `gqb` Query Builder.
 
-100 records:
 
 ```
-BenchmarkNativeSQL-8                2000            696598 ns/op            1072 B/op         34 allocs/op
-BenchmarkQueryBuilder-8             2000            653312 ns/op            2910 B/op         87 allocs/op
-```
+100 records:
+BenchmarkNativeSQL-8      2000     696598 ns/op     1072 B/op    34 allocs/op
+BenchmarkQueryBuilder-8   2000     653312 ns/op     2910 B/op    87 allocs/op
 
 1000 records:
-
-```
-BenchmarkNativeSQL-8                2000            738930 ns/op            1076 B/op         34 allocs/op
-BenchmarkQueryBuilder-8             2000            681146 ns/op            2912 B/op         87 allocs/op
-```
+BenchmarkNativeSQL-8      2000     738930 ns/op     1076 B/op    34 allocs/op
+BenchmarkQueryBuilder-8   2000     681146 ns/op     2912 B/op    87 allocs/op
 
 10000 records:
-
-```
-BenchmarkNativeSQL-8                2000            747242 ns/op            1073 B/op         34 allocs/op
-BenchmarkQueryBuilder-8             2000            751494 ns/op            2914 B/op         87 allocs/op
+BenchmarkNativeSQL-8      2000     747242 ns/op     1073 B/op    34 allocs/op
+BenchmarkQueryBuilder-8   2000     751494 ns/op     2914 B/op    87 allocs/op
 ```
 
 ## Author
