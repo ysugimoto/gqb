@@ -65,7 +65,7 @@ Above line is needed because gqb have to build SQL with considering driver's dia
 The following example maybe generic usage. We expects SQL as:
 
 ```sql
-SELECT name FROM companies WHERE id = 3;
+SELECT name FROM companies WHERE id = 1;
 ```
 
 `gqb` makes above SQL and retrieve result by following code:
