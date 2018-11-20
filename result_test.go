@@ -27,12 +27,13 @@ func TestString(t *testing.T) {
 		})
 		assert.Equal(t, "foobarbaz", r.MustString("example"))
 	})
-	t.Run("String() returns error for no-string type value", func(t *testing.T) {
+	t.Run("String() returns stringified value", func(t *testing.T) {
 		r := gqb.NewResult(map[string]interface{}{
 			"example": 1,
 		})
-		_, err := r.String("example")
-		assert.Error(t, err)
+		v, err := r.String("example")
+		assert.NoError(t, err)
+		assert.Equal(t, "1", v)
 	})
 	t.Run("String() returns expected string without error", func(t *testing.T) {
 		r := gqb.NewResult(map[string]interface{}{
@@ -123,12 +124,13 @@ func TestBytes(t *testing.T) {
 		})
 		assert.Equal(t, []byte("foobarbaz"), r.MustBytes("example"))
 	})
-	t.Run("Bytes() returns error for no-bytes type value", func(t *testing.T) {
+	t.Run("Bytes() returns bytefied value", func(t *testing.T) {
 		r := gqb.NewResult(map[string]interface{}{
 			"example": 1,
 		})
-		_, err := r.Bytes("example")
-		assert.Error(t, err)
+		v, err := r.Bytes("example")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("1"), v)
 	})
 	t.Run("Bytes() returns expected []byte without error", func(t *testing.T) {
 		r := gqb.NewResult(map[string]interface{}{

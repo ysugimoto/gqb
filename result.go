@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
 )
 
@@ -60,76 +61,159 @@ func (r *Result) MustString(f string) string {
 
 // Get field value as string with caring type conversion
 func (r *Result) String(f string) (string, error) {
-	if v, ok := r.values[f]; !ok {
+	v, ok := r.values[f]
+	if !ok {
 		return "", fmt.Errorf("field %s doesn't exist in result", f)
-	} else if v == nil {
-		return "", fmt.Errorf("field %s is nil", f)
-	} else if s, ok := v.(string); !ok {
-		return "", fmt.Errorf("field %s couldn't cast to string", f)
-	} else {
-		return s, nil
 	}
+	switch v.(type) {
+	case string:
+		return v.(string), nil
+	}
+	return fmt.Sprint(v), nil
 }
 
 // Force get field value as int
 func (r *Result) MustInt(f string) int {
-	return r.values[f].(int)
+	if i, err := r.Int(f); err != nil {
+		panic(err)
+	} else {
+		return i
+	}
 }
 
 // Get field value as int with caring type conversion
 func (r *Result) Int(f string) (int, error) {
-	if v, ok := r.values[f]; !ok {
+	v, ok := r.values[f]
+	if !ok {
 		return 0, fmt.Errorf("field %s doesn't exist in result", f)
-	} else if v == nil {
-		return 0, fmt.Errorf("field %s is nil", f)
-	} else if i, ok := v.(int); !ok {
-		return 0, fmt.Errorf("field %s couldn't cast to int", f)
-	} else {
-		return i, nil
 	}
+	switch v.(type) {
+	case string:
+		return strconv.Atoi(v.(string))
+	case int:
+		return v.(int), nil
+	case int8:
+		return int(v.(int8)), nil
+	case int16:
+		return int(v.(int16)), nil
+	case int32:
+		return int(v.(int32)), nil
+	case int64:
+		return int(v.(int64)), nil
+	case float32:
+		return int(v.(float32)), nil
+	case float64:
+		return int(v.(float64)), nil
+	case uint8:
+		return int(v.(uint8)), nil
+	case uint16:
+		return int(v.(uint16)), nil
+	case uint32:
+		return int(v.(uint32)), nil
+	case uint64:
+		return int(v.(uint64)), nil
+	}
+
+	return 0, fmt.Errorf("field %s couldn't cast to int", f)
 }
 
 // Force get field value as int64
 func (r *Result) MustInt64(f string) int64 {
-	return r.values[f].(int64)
+	if i64, err := r.Int64(f); err != nil {
+		panic(err)
+	} else {
+		return i64
+	}
 }
 
 // Get field value as int64 with caring type conversion
 func (r *Result) Int64(f string) (int64, error) {
-	if v, ok := r.values[f]; !ok {
+	v, ok := r.values[f]
+	if !ok {
 		return 0, fmt.Errorf("field %s doesn't exist in result", f)
-	} else if v == nil {
-		return 0, fmt.Errorf("field %s is nil", f)
-	} else if i, ok := v.(int64); ok {
-		return i, nil
-	} else if i, ok := v.(int); !ok {
-		return 0, fmt.Errorf("field %s couldn't cast to int64", f)
-	} else {
-		return int64(i), nil
 	}
+	switch v.(type) {
+	case string:
+		return strconv.ParseInt(v.(string), 10, 64)
+	case int:
+		return int64(v.(int)), nil
+	case int8:
+		return int64(v.(int8)), nil
+	case int16:
+		return int64(v.(int16)), nil
+	case int32:
+		return int64(v.(int32)), nil
+	case int64:
+		return v.(int64), nil
+	case float32:
+		return int64(v.(float32)), nil
+	case float64:
+		return int64(v.(float64)), nil
+	case uint8:
+		return int64(v.(uint8)), nil
+	case uint16:
+		return int64(v.(uint16)), nil
+	case uint32:
+		return int64(v.(uint32)), nil
+	case uint64:
+		return int64(v.(uint64)), nil
+	}
+
+	return 0, fmt.Errorf("field %s couldn't cast to int64", f)
 }
 
 // Force get field value as float64
 func (r *Result) MustFloat64(f string) float64 {
-	return r.values[f].(float64)
+	if f64, err := r.Float64(f); err != nil {
+		panic(err)
+	} else {
+		return f64
+	}
 }
 
 // Get field value as float64 with caring type conversion
 func (r *Result) Float64(f string) (float64, error) {
-	if v, ok := r.values[f]; !ok {
+	v, ok := r.values[f]
+	if !ok {
 		return 0, fmt.Errorf("field %s doesn't exist in result", f)
-	} else if v == nil {
-		return 0, fmt.Errorf("field %s is nil", f)
-	} else if i, ok := v.(float64); !ok {
-		return 0, fmt.Errorf("field %s couldn't cast to float64", f)
-	} else {
-		return i, nil
 	}
+	switch v.(type) {
+	case string:
+		return strconv.ParseFloat(v.(string), 64)
+	case int:
+		return float64(v.(int)), nil
+	case int8:
+		return float64(v.(int8)), nil
+	case int16:
+		return float64(v.(int16)), nil
+	case int32:
+		return float64(v.(int32)), nil
+	case int64:
+		return float64(v.(int64)), nil
+	case float32:
+		return float64(v.(float32)), nil
+	case float64:
+		return v.(float64), nil
+	case uint8:
+		return float64(v.(uint8)), nil
+	case uint16:
+		return float64(v.(uint16)), nil
+	case uint32:
+		return float64(v.(uint32)), nil
+	case uint64:
+		return float64(v.(uint64)), nil
+	}
+
+	return 0, fmt.Errorf("field %s couldn't cast to float64", f)
 }
 
 // Force get field value as []byte
 func (r *Result) MustBytes(f string) []byte {
-	return []byte(r.MustString(f))
+	if v, err := r.Bytes(f); err != nil {
+		panic(err)
+	} else {
+		return v
+	}
 }
 
 // Get field value as []byte with caring type conversion
