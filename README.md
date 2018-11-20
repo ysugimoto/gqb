@@ -149,6 +149,13 @@ it will map values to field which corresponds to tag value of `db:"field"`.
 
 `[]byte`, corresponds to `blob` type column not supported.yet.
 
+The `gqb.Result` object works as `fuzzy type conversion` process, so `gqb` converts result row type as far as possible, e.g:
+
+- int -> string via fmt.Sprint
+- string -> int via strconv.ParseInt
+
+and so on. So, you will be able to access database column value  as you want.
+
 ## Benchmarks
 
 Native SQL vs `gqb` Query Builder.
