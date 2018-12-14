@@ -62,7 +62,7 @@ type rawCondition struct {
 
 // conditionBuilder::getCombine() interface implementation
 func (r rawCondition) Combine() string {
-	return string(c.combine)
+	return string(r.combine)
 }
 
 // conditionBuilder::Build() interface implementation
