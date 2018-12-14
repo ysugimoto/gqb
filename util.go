@@ -19,8 +19,12 @@ func SetDriver(driverType string) {
 }
 
 // shorthand syntax for compat.Compat.Quote
-func quote(str string) string {
-	return driverCompat.Quote(str)
+func quote(str interface{}) string {
+	if raw, ok := str.(Raw); ok {
+		return string(raw)
+	} else {
+		return driverCompat.Quote(str.(string))
+	}
 }
 
 // parseTag() parses Strcut tag to name-value map
