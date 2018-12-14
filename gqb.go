@@ -120,6 +120,22 @@ func (q *QueryBuilder) AddWhere(c ConditionBuilder) *QueryBuilder {
 	return q
 }
 
+// Add user specific raw condition with AND combination
+func (q *QueryBuilder) WhereRaw(raw string) *QueryBuilder {
+	return q.AddWhere(rawCondition{
+		rawCondition: raw,
+		combine:      And,
+	})
+}
+
+// Add user specific raw condition with OR combination
+func (q *QueryBuilder) OrWhereRaw(raw string) *QueryBuilder {
+	return q.AddWhere(rawCondition{
+		rawCondition: raw,
+		combine:      Or,
+	})
+}
+
 // Add condition with AND combination
 func (q *QueryBuilder) Where(field string, value interface{}, comparison Comparison) *QueryBuilder {
 	return q.AddWhere(condition{
