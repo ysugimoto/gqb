@@ -53,3 +53,19 @@ func (c condition) Build(binds []interface{}) (string, []interface{}) {
 	}
 	return clause, binds
 }
+
+// Raw clause condition
+type rawCondition struct {
+	rawClause string
+	combine   CombineType
+}
+
+// conditionBuilder::getCombine() interface implementation
+func (r rawCondition) Combine() string {
+	return string(r.combine)
+}
+
+// conditionBuilder::Build() interface implementation
+func (r rawCondition) Build(binds []interface{}) (string, []interface{}) {
+	return r.rawClause, binds
+}
