@@ -111,3 +111,19 @@ func (w *WhereGroup) OrLike(field string, value interface{}) *WhereGroup {
 		combine:    Or,
 	})
 }
+
+// Add user specific raw condition with AND combination
+func (w *WhereGroup) WhereRaw(raw string) *WhereGroup {
+	return w.AddWhere(rawCondition{
+		rawClause: raw,
+		combine:   And,
+	})
+}
+
+// Add user specific raw condition with OR combination
+func (w *WhereGroup) OrWhereRaw(raw string) *WhereGroup {
+	return w.AddWhere(rawCondition{
+		rawClause: raw,
+		combine:   Or,
+	})
+}
