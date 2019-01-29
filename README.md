@@ -1,5 +1,8 @@
 # gqb - Golang Simple Query Builder
 
+[![CircleCI](https://circleci.com/gh/ysugimoto/gqb.svg?style=svg)](https://circleci.com/gh/ysugimoto/gqb)
+[![GoDoc](https://godoc.org/github.com/ysugimoto/gqb?status.svg)](https://godoc.org/github.com/ysugimoto/gqb)
+
 ## Features
 
 - Build SQL easily through the method chains
